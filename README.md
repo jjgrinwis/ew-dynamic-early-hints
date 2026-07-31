@@ -195,7 +195,34 @@ akamai edgekv list ns <production|staging>
 **What is an EdgeWorker ID?**
 An EdgeWorker ID is a unique identifier that Akamai uses to track your deployed code. You need one ID per EdgeWorker (so two IDs total: one for hints-reader, one for hints-updater).
 
-**Create EdgeWorker IDs using npm scripts:**
+**Create EdgeWorker IDs using npm scripts.** Every script that touches an account-specific value (`edgerc_section`, `accountswitchkey`, `ewid`, `ew_group_id`, `hostname`) checks an environment variable first and only falls back to the `package.json` placeholder if that variable is unset — so you have two ways to supply real values:
+
+**Option 1: `local-config.sh` (Recommended)** — keeps `package.json` free of real IDs, so the repo stays safe to commit/push at any time (this is how this project's own values are kept out of git):
+
+```bash
+# Copy the template once and fill in your real values
+cp local-config.sh.example local-config.sh   # gitignored, never committed
+
+# Edit local-config.sh:
+export AKAMAI_EDGEGRID_SECTION="default"      # Your .edgerc section name
+export AKAMAI_ACCOUNT_SWITCH_KEY=""           # Only if needed (ask your Akamai admin)
+export EW_GROUP_ID="12345"                    # Your group ID from step 4
+export HINTS_READER_EWID=""                   # Filled in after create-id below
+export HINTS_UPDATER_EWID=""                  # Filled in after create-id below
+export EW_HOSTNAME="your-hostname.example.com"
+
+# Source it, then create each EdgeWorker ID
+source ./local-config.sh
+cd hints-reader && npm run create-id
+# Note the EdgeWorker ID returned (e.g., 109849) — set it as HINTS_READER_EWID in local-config.sh
+
+cd ../hints-updater && npm run create-id
+# Note the EdgeWorker ID returned (e.g., 109850) — set it as HINTS_UPDATER_EWID in local-config.sh
+```
+
+After updating `local-config.sh`, re-run `source ./local-config.sh` before any further `npm run` command (deploy, generate-token, etc.) in that shell session.
+
+**Option 2: Hardcode directly in `package.json`** — simpler for a one-off setup where you don't need the repo to stay push-safe (e.g. a private, single-purpose deployment):
 
 ```bash
 # Configure hints-reader
@@ -335,15 +362,19 @@ const EDGEKV_GROUP = "earlyHints";
 
 ### 10. Deploy to Staging
 
+If you used `local-config.sh` (step 6, Option 1), source it first in each shell session — otherwise the deploy scripts fall back to whatever placeholders are in `package.json`:
+
 ```bash
 # Deploy hints-reader
 cd hints-reader
 npm install
+source ../local-config.sh   # skip if you hardcoded values in package.json (step 6, Option 2)
 npm run deploy:staging
 
 # Deploy hints-updater
 cd ../hints-updater
 npm install
+source ../local-config.sh   # skip if you hardcoded values in package.json (step 6, Option 2)
 npm run deploy:staging
 ```
 
