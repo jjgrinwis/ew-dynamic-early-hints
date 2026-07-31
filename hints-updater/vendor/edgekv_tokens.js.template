@@ -1,0 +1,25 @@
+// ==============================================================================
+// EdgeKV Access Token Configuration
+// ==============================================================================
+//
+// IMPORTANT:
+// 1. Copy this file to edgekv_tokens.js (remove .template extension)
+// 2. Replace the placeholder values with your actual token details
+// 3. NEVER commit edgekv_tokens.js to version control!
+// 4. The key MUST use "namespace-<your-namespace-name>" format
+//
+// To create a token:
+// akamai edgekv create token <your-namespace-name> \
+//   --ewids <hints-reader-id>,<hints-updater-id> \
+//   --expiry 2025-12-31
+//
+// ==============================================================================
+
+var edgekv_access_tokens = {
+  "namespace-YOUR_NAMESPACE_NAME": {
+    "name": "YOUR_TOKEN_NAME",
+    "reference": "YOUR_TOKEN_REFERENCE"
+  }
+};
+
+export { edgekv_access_tokens };

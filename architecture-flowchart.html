@@ -1,0 +1,1304 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Akamai Early Hints Architecture</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Segoe UI Variable",
+          Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        background: linear-gradient(135deg, #0a1929 0%, #1a2332 100%);
+        color: #e0e7ff;
+        line-height: 1.6;
+        padding: 0;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 3rem 2rem;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      h1 {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 1rem;
+        letter-spacing: -0.02em;
+      }
+
+      .subtitle {
+        font-size: 1.2rem;
+        color: #94a3b8;
+        font-weight: 400;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-bottom: 3rem;
+        flex-wrap: wrap;
+      }
+
+      .tab {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: #94a3b8;
+        padding: 0.875rem 1.75rem;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.95rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        backdrop-filter: blur(10px);
+      }
+
+      .tab:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(96, 165, 250, 0.5);
+        color: #60a5fa;
+        transform: translateY(-2px);
+      }
+
+      .tab.active {
+        background: linear-gradient(
+          135deg,
+          rgba(96, 165, 250, 0.2) 0%,
+          rgba(167, 139, 250, 0.2) 100%
+        );
+        border-color: #60a5fa;
+        color: #60a5fa;
+        box-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+        animation: fadeIn 0.4s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* Flowchart Styles */
+      .flowchart {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 2rem 0;
+      }
+
+      .flow-node {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2rem;
+        width: 100%;
+        max-width: 800px;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        backdrop-filter: blur(10px);
+      }
+
+      .flow-node:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(96, 165, 250, 0.5);
+        transform: translateX(5px);
+        box-shadow: 0 8px 30px rgba(96, 165, 250, 0.15);
+      }
+
+      .flow-node-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .flow-number {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 1.1rem;
+        color: white;
+        flex-shrink: 0;
+      }
+
+      .flow-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #e0e7ff;
+      }
+
+      .flow-description {
+        color: #94a3b8;
+        font-size: 1rem;
+        line-height: 1.7;
+        margin-left: 56px;
+      }
+
+      .flow-code {
+        background: #0f172a;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        margin: 1rem 0 0 56px;
+        font-family:
+          "SF Mono", Monaco, "Cascadia Code", "Courier New", monospace;
+        font-size: 0.875rem;
+        color: #86efac;
+        overflow-x: auto;
+        line-height: 1.6;
+      }
+
+      .flow-arrow {
+        width: 2px;
+        height: 40px;
+        background: linear-gradient(
+          to bottom,
+          rgba(96, 165, 250, 0.6),
+          rgba(167, 139, 250, 0.6)
+        );
+        position: relative;
+      }
+
+      .flow-arrow::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 8px solid transparent;
+        border-right: 8px solid transparent;
+        border-top: 12px solid rgba(167, 139, 250, 0.6);
+      }
+
+      /* Node Type Variants */
+      .flow-node.decision {
+        border-left: 4px solid #fbbf24;
+      }
+
+      .flow-node.decision .flow-number {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      }
+
+      .flow-node.action {
+        border-left: 4px solid #10b981;
+      }
+
+      .flow-node.action .flow-number {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      }
+
+      .flow-node.external {
+        border-left: 4px solid #6366f1;
+      }
+
+      .flow-node.external .flow-number {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      }
+
+      .flow-node.edgekv {
+        border-left: 4px solid #ef4444;
+      }
+
+      .flow-node.edgekv .flow-number {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+
+      /* Info Box */
+      .info-box {
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        margin: 2rem auto;
+        max-width: 800px;
+      }
+
+      .info-box-title {
+        font-weight: 600;
+        color: #60a5fa;
+        margin-bottom: 0.75rem;
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .info-box-content {
+        color: #94a3b8;
+        line-height: 1.8;
+      }
+
+      .info-box-content ul {
+        margin-left: 1.5rem;
+        margin-top: 0.5rem;
+      }
+
+      .info-box-content li {
+        margin-bottom: 0.5rem;
+      }
+
+      .info-box-content strong {
+        color: #e0e7ff;
+      }
+
+      /* Architecture Diagram */
+      .arch-diagram {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 3rem 2rem;
+        margin: 2rem 0;
+      }
+
+      .diagram-title {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 600;
+        color: #e0e7ff;
+        margin-bottom: 3rem;
+      }
+
+      .arch-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 2rem;
+      }
+
+      .arch-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 0.75rem;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+      }
+
+      .arch-card:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(96, 165, 250, 0.5);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px rgba(96, 165, 250, 0.15);
+      }
+
+      .arch-card-title {
+        font-weight: 600;
+        font-size: 1.2rem;
+        color: #60a5fa;
+        margin-bottom: 0.75rem;
+      }
+
+      .arch-card-content {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+
+      .arch-card-content code {
+        background: rgba(96, 165, 250, 0.1);
+        padding: 0.2rem 0.4rem;
+        border-radius: 0.25rem;
+        color: #60a5fa;
+        font-size: 0.875rem;
+      }
+
+      /* Legend */
+      .legend {
+        display: flex;
+        gap: 2rem;
+        justify-content: center;
+        flex-wrap: wrap;
+        padding: 2rem;
+        margin-top: 3rem;
+        background: rgba(255, 255, 255, 0.03);
+        border-radius: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .legend-box {
+        width: 40px;
+        height: 40px;
+        border-radius: 0.5rem;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .legend-box.default {
+        background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+      }
+
+      .legend-box.decision {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      }
+
+      .legend-box.action {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      }
+
+      .legend-box.external {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      }
+
+      .legend-box.edgekv {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+
+      .legend-label {
+        color: #94a3b8;
+        font-weight: 500;
+      }
+
+      /* Branch Layout */
+      .flow-branch {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+        width: 100%;
+        max-width: 1000px;
+      }
+
+      /* SVG Diagram */
+      .svg-container {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 1rem;
+        padding: 2rem;
+        margin: 2rem 0;
+        overflow-x: auto;
+      }
+
+      .diagram-svg {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        display: block;
+      }
+
+      @media (max-width: 768px) {
+        h1 {
+          font-size: 2rem;
+        }
+
+        .flow-branch {
+          grid-template-columns: 1fr;
+        }
+
+        .tabs {
+          flex-direction: column;
+        }
+
+        .flow-description,
+        .flow-code {
+          margin-left: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Akamai Early Hints Architecture</h1>
+        <p class="subtitle">
+          Dynamic HTTP 103 Early Hints with EdgeWorkers and EdgeKV
+        </p>
+      </header>
+
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('overview')">
+          Architecture Overview
+        </button>
+        <button class="tab" onclick="switchTab('reader')">
+          Hints Reader Flow
+        </button>
+        <button class="tab" onclick="switchTab('updater')">
+          Hints Updater Flow
+        </button>
+        <button class="tab" onclick="switchTab('management')">
+          Management Operations
+        </button>
+      </div>
+
+      <!-- Overview Tab -->
+      <div id="overview" class="tab-content active">
+        <div class="arch-diagram">
+          <h2 class="diagram-title">System Architecture</h2>
+
+          <div style="text-align: center; margin: 3rem 0">
+            <img
+              src="architecture-diagram.png"
+              alt="Akamai Early Hints Architecture Diagram"
+              style="
+                max-width: 100%;
+                height: auto;
+                border-radius: 1rem;
+                box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+              "
+            />
+          </div>
+
+          <div class="arch-grid">
+            <div class="arch-card">
+              <div class="arch-card-title">🗄️ EdgeKV</div>
+              <div class="arch-card-content">
+                Global key-value storage for dynamic hints. Single
+                <code>all_hints</code> item stores all discovered resources.
+                <br /><br /><strong>Performance:</strong> ~3-7ms read latency
+                (measured)
+              </div>
+            </div>
+
+            <div class="arch-card">
+              <div class="arch-card-title">⚡ hints-reader (EW 1)</div>
+              <div class="arch-card-content">
+                Fires <strong>before cache</strong> on HTML requests. Reads
+                EdgeKV, merges with static hints, sets PMUSER variable for HTTP
+                103 response. <br /><br /><strong>Trigger:</strong>
+                <code>onClientRequest</code>
+                <br /><strong>Selective matching:</strong> Configure Property
+                Manager to match specific high-value pages (e.g.,
+                <code>/home</code>, <code>/products/*</code>,
+                <code>/blog/*</code>). Focus on landing pages and conversion
+                paths—not every page needs early hints.
+              </div>
+            </div>
+
+            <div class="arch-card">
+              <div class="arch-card-title">✍️ hints-updater (EW 2)</div>
+              <div class="arch-card-content">
+                Fires <strong>after cache miss</strong> on specific resource
+                requests. Compares versions, updates EdgeKV if newer, sets cache
+                tags. <br /><br /><strong>Trigger:</strong>
+                <code>onOriginResponse</code>
+                <br /><strong>Selective matching:</strong> Only fires for
+                specific patterns configured in Property Manager (e.g.,
+                <code>ruxitagentjs_*</code>, <code>example.css</code>). Not all
+                files need early hints—only critical resources.
+              </div>
+            </div>
+
+            <div class="arch-card">
+              <div class="arch-card-title">🌐 Origin Server</div>
+              <div class="arch-card-content">
+                Returns resources with <code>Last-Modified</code> headers. Only
+                contacted on cache miss. Provides version metadata for update
+                decisions.
+              </div>
+            </div>
+
+            <div class="arch-card">
+              <div class="arch-card-title">🔧 manage-hints.sh</div>
+              <div class="arch-card-content">
+                Management script for EdgeKV operations: view hints
+                (<code>--show-content</code>), delete specific key
+                (<code>--delete-key</code>), full reset
+                (<code>--full-reset</code>).
+              </div>
+            </div>
+
+            <div class="arch-card">
+              <div class="arch-card-title">💾 Akamai Cache</div>
+              <div class="arch-card-content">
+                Caches resources at edge POPs. EdgeWorkers fire at specific
+                stages: before cache (reader) or after origin response
+                (updater).
+              </div>
+            </div>
+          </div>
+
+          <div class="info-box" style="margin-top: 3rem">
+            <div class="info-box-title">🎯 Critical Design Points</div>
+            <div class="info-box-content">
+              <ul>
+                <li>
+                  <strong>Before Cache:</strong> hints-reader fires on matched
+                  HTML requests (client request stage)
+                </li>
+                <li>
+                  <strong>After Cache:</strong> hints-updater fires only on
+                  cache misses (origin response stage)
+                </li>
+                <li>
+                  <strong>Selective Matching:</strong> Both EdgeWorkers only
+                  fire when explicitly matched in Property Manager—customer
+                  controls which paths trigger each EdgeWorker
+                </li>
+                <li>
+                  <strong>Single EdgeKV Item:</strong> One
+                  <code>all_hints</code> object eliminates index lookups
+                </li>
+                <li>
+                  <strong>Version Tracking:</strong> Last-Modified headers
+                  prevent stale overwrites from cold POPs
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reader Flow Tab -->
+      <div id="reader" class="tab-content">
+        <div class="flowchart">
+          <div class="flow-node external">
+            <div class="flow-node-header">
+              <div class="flow-number">1</div>
+              <div class="flow-title">User Request</div>
+            </div>
+            <div class="flow-description">
+              Browser requests HTML page (e.g., <code>/home</code>,
+              <code>/index.html</code>)
+            </div>
+            <div class="flow-code">GET https://example.com/home</div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node">
+            <div class="flow-node-header">
+              <div class="flow-number">2</div>
+              <div class="flow-title">Property Manager Match</div>
+            </div>
+            <div class="flow-description">
+              <strong
+                >Property Manager match criteria (customer configures):</strong
+              ><br />
+              • <strong>Selective paths:</strong> <code>/</code>,
+              <code>/home</code>, <code>/products/*</code>, <code>/blog/*</code
+              ><br />
+              • <strong>Or broader:</strong> <code>*.html</code>, content-type
+              <code>text/html</code><br />
+              <strong>Why selective?</strong> EdgeKV lookups have cost—focus on
+              high-value landing pages and conversion paths.<br />
+              • OR Content-Type: <code>text/html</code>
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">3</div>
+              <div class="flow-title">EdgeWorker: hints-reader Triggers</div>
+            </div>
+            <div class="flow-description">
+              <code>onClientRequest</code> event fires (EW 1)
+            </div>
+            <div class="flow-code">
+              async function onClientRequest(request) { // Load static hints
+              from config // Read EdgeKV all_hints item }
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node edgekv">
+            <div class="flow-node-header">
+              <div class="flow-number">4</div>
+              <div class="flow-title">EdgeKV Lookup (Single Read)</div>
+            </div>
+            <div class="flow-description">
+              Read <code>all_hints</code> item from EdgeKV namespace<br />
+              <strong>Performance:</strong> ~3-7ms (measured), single lookup for
+              all hints
+            </div>
+            <div class="flow-code">
+              const allHints = await edgeKV.getJson("all_hints"); // Returns
+              entire hints object: // { // "example.css": { // "filename":
+              "example.css?v=10", // "lastModified": "Wed, 21 Jul 2026 15:30:00
+              GMT" // }, // ... // }
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">5</div>
+              <div class="flow-title">Build Hints String</div>
+            </div>
+            <div class="flow-description">
+              Merge static hints + dynamic hints from EdgeKV<br />
+              Format: RFC 8297 Link header format
+            </div>
+            <div class="flow-code">
+              // Static hints (from config) "&lt;https://fonts.google.com&gt;;
+              rel=preconnect" // Dynamic hints (from EdgeKV)
+              "&lt;/example.css?v=10&gt;; rel=preload; as=style"
+              "&lt;/app.js?v=5&gt;; rel=preload; as=script" // Combined with ",
+              " delimiter
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">6</div>
+              <div class="flow-title">Set PMUSER Variable</div>
+            </div>
+            <div class="flow-description">
+              EdgeWorker sets <code>PMUSER_103_HINTS</code> variable for
+              Property Manager
+            </div>
+            <div class="flow-code">
+              request.setVariable( "PMUSER_103_HINTS", allHintsString // Max 8KB
+              );
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node">
+            <div class="flow-node-header">
+              <div class="flow-number">7</div>
+              <div class="flow-title">
+                Property Manager: Emit HTTP 103 Early Hints
+              </div>
+            </div>
+            <div class="flow-description">
+              Property Manager configuration sends HTTP 103 response before
+              final HTML response
+            </div>
+            <div class="flow-code">
+              HTTP/1.1 103 Early Hints Link: &lt;https://fonts.google.com&gt;;
+              rel=preconnect, &lt;/example.css?v=10&gt;; rel=preload; as=style,
+              &lt;/app.js?v=5&gt;; rel=preload; as=script
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node external">
+            <div class="flow-node-header">
+              <div class="flow-number">8</div>
+              <div class="flow-title">Browser Receives Early Hints</div>
+            </div>
+            <div class="flow-description">
+              Browser starts preloading resources BEFORE HTML arrives<br />
+              <strong>Result:</strong> Faster page load, improved Core Web
+              Vitals (LCP)
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node external">
+            <div class="flow-node-header">
+              <div class="flow-number">9</div>
+              <div class="flow-title">HTML Response Follows</div>
+            </div>
+            <div class="flow-description">
+              Normal HTTP 200 response with full HTML content
+            </div>
+            <div class="flow-code">
+              HTTP/1.1 200 OK Content-Type: text/html ...
+              &lt;html&gt;...&lt;/html&gt;
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">⚡ Key Performance Characteristics</div>
+            <div class="info-box-content">
+              <ul>
+                <li>Single EdgeKV read per HTML page (~3-7ms measured)</li>
+                <li>
+                  Total EdgeWorker overhead: ~5ms execution + ~4ms EdgeKV = ~9ms
+                </li>
+                <li>
+                  Falls back to static hints on EdgeKV failure (no blocking)
+                </li>
+                <li>
+                  Only fires on HTML pages (configured via Property Manager)
+                </li>
+                <li>Hints delivered before HTML parsing begins</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Updater Flow Tab -->
+      <div id="updater" class="tab-content">
+        <div class="flowchart">
+          <div class="flow-node external">
+            <div class="flow-node-header">
+              <div class="flow-number">1</div>
+              <div class="flow-title">Resource Request</div>
+            </div>
+            <div class="flow-description">
+              Browser requests resource: <code>/example.css?v=10</code><br />
+              Request arrives at Akamai edge
+            </div>
+            <div class="flow-code">
+              GET https://example.com/example.css?v=10
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node decision">
+            <div class="flow-node-header">
+              <div class="flow-number">2</div>
+              <div class="flow-title">Property Manager Match Check</div>
+            </div>
+            <div class="flow-description">
+              <strong
+                >CRITICAL: EdgeWorker only fires if matched in Property
+                Manager</strong
+              ><br />
+              Customer configures match criteria:<br />
+              • Specific patterns: <code>ruxitagentjs_*</code>,
+              <code>example.css</code><br />
+              • File types: <code>*.css</code>, <code>*.js</code>,
+              <code>*.woff2</code><br />
+              <strong>Why selective?</strong> Only hint critical resources that
+              benefit from early loading. Not every file needs hints.<br />
+              <br />
+              <strong>If NO MATCH:</strong> EdgeWorker will NOT fire → Normal
+              cache/origin flow<br />
+              <strong>If MATCH + Cache HIT:</strong> Serve from cache,
+              EdgeWorker will NOT fire<br />
+              <strong>If MATCH + Cache MISS:</strong> Proceed to origin →
+              EdgeWorker fires on response
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node">
+            <div class="flow-node-header">
+              <div class="flow-number">3</div>
+              <div class="flow-title">Cache Miss → Origin Server</div>
+            </div>
+            <div class="flow-description">
+              Request forwarded to origin (cache miss + Property Manager match)
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node external">
+            <div class="flow-node-header">
+              <div class="flow-number">4</div>
+              <div class="flow-title">Origin Server Response</div>
+            </div>
+            <div class="flow-description">
+              Origin returns resource with metadata
+            </div>
+            <div class="flow-code">
+              HTTP/1.1 200 OK Last-Modified: Wed, 21 Jul 2026 15:30:00 GMT
+              Cache-Control: public, max-age=31536000 Content-Type: text/css /*
+              CSS content */
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">5</div>
+              <div class="flow-title">EdgeWorker: hints-updater Triggers</div>
+            </div>
+            <div class="flow-description">
+              <code>onOriginResponse</code> event fires (EW 2)<br />
+              <strong>Only fires because:</strong><br />
+              • Property Manager matched this request (step 2)<br />
+              • Cache miss occurred (step 3)<br />
+              • Origin responded (step 4)
+            </div>
+            <div class="flow-code">
+              async function onOriginResponse(request, response) { // Only
+              process 200 OK responses if (response.status !== 200) return; //
+              Extract filename and version info }
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node decision">
+            <div class="flow-node-header">
+              <div class="flow-number">6</div>
+              <div class="flow-title">Verify Response Status</div>
+            </div>
+            <div class="flow-description">Check if response is 200 OK</div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">7</div>
+              <div class="flow-title">Extract Logical Key</div>
+            </div>
+            <div class="flow-description">
+              Derive logical key by stripping version information
+            </div>
+            <div class="flow-code">
+              // Examples: "example.css?v=10" → key: "example.css"
+              "ruxitagentjs_ABC_123456.js" → key: "ruxitagentjs" "main.css" →
+              key: "main.css"
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node edgekv">
+            <div class="flow-node-header">
+              <div class="flow-number">8</div>
+              <div class="flow-title">EdgeKV Read (Check Existing)</div>
+            </div>
+            <div class="flow-description">
+              Read <code>all_hints</code> to check if key exists and compare
+              versions
+            </div>
+            <div class="flow-code">
+              const allHints = await edgeKV.getJson("all_hints") || {}; const
+              existingEntry = allHints[logicalKey];
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node decision">
+            <div class="flow-node-header">
+              <div class="flow-number">9</div>
+              <div class="flow-title">Version Comparison</div>
+            </div>
+            <div class="flow-description">
+              Two-tier comparison to prevent stale writes
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-branch">
+            <div class="flow-node decision">
+              <div class="flow-node-header">
+                <div class="flow-number">9a</div>
+                <div class="flow-title">Primary: Last-Modified</div>
+              </div>
+              <div class="flow-description">
+                Compare Last-Modified headers if present
+              </div>
+              <div class="flow-code">
+                incoming: "Wed, 21 Jul 2026 16:00:00 GMT" existing: "Wed, 21 Jul
+                2026 15:00:00 GMT" Date.parse(incoming) > Date.parse(existing) →
+                UPDATE
+              </div>
+            </div>
+
+            <div class="flow-node decision">
+              <div class="flow-node-header">
+                <div class="flow-number">9b</div>
+                <div class="flow-title">Fallback: Serial Number</div>
+              </div>
+              <div class="flow-description">
+                Extract version numbers from filename/query
+              </div>
+              <div class="flow-code">
+                // Query: ?v=202607214303 // Filename: _10329260115094563
+                BigInt(incomingSerial) > BigInt(existingSerial) → UPDATE
+                BigInt(incomingSerial) <= BigInt(existingSerial) → SKIP (keep
+                existing)
+              </div>
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node decision">
+            <div class="flow-node-header">
+              <div class="flow-number">10</div>
+              <div class="flow-title">Update Decision</div>
+            </div>
+            <div class="flow-description">
+              <strong>UPDATE if:</strong> Incoming is newer OR no existing
+              entry<br />
+              <strong>SKIP if:</strong> Existing is newer (stale write
+              protection)
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node edgekv">
+            <div class="flow-node-header">
+              <div class="flow-number">11</div>
+              <div class="flow-title">EdgeKV Write (If Update Required)</div>
+            </div>
+            <div class="flow-description">
+              Update the <code>all_hints</code> object with new entry
+            </div>
+            <div class="flow-code">
+              allHints[logicalKey] = { filename: "example.css?v=10",
+              lastModified: "Wed, 21 Jul 2026 15:30:00 GMT" }; await
+              edgeKV.putJson("all_hints", allHints);
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">12</div>
+              <div class="flow-title">Set Cache Tags</div>
+            </div>
+            <div class="flow-description">
+              Add Edge-Cache-Tag header for targeted purging
+            </div>
+            <div class="flow-code">
+              response.setHeader( "Edge-Cache-Tag",
+              `early-hints,hints-${logicalKey}` ); // Examples: //
+              early-hints,hints-example.css // early-hints,hints-ruxitagentjs
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node external">
+            <div class="flow-node-header">
+              <div class="flow-number">13</div>
+              <div class="flow-title">Resource Cached & Served</div>
+            </div>
+            <div class="flow-description">
+              Akamai caches the resource for future requests<br />
+              Next cache miss will trigger version check again
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">🛡️ Stale-Write Protection Example</div>
+            <div class="info-box-content">
+              <strong>Scenario:</strong> Cold edge POP serving old page<br /><br />
+              1. Current EdgeKV: <code>example.css?v=10</code><br />
+              2. Cache miss: <code>example.css?v=08</code> (from old page
+              reference)<br />
+              3. Version check: <code>08 &lt; 10</code><br />
+              4. Decision: <strong>SKIP</strong> - keeps v=10, prevents
+              downgrade<br /><br />
+              <strong>Result:</strong> Newest version always preserved
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">⚡ Performance Characteristics</div>
+            <div class="info-box-content">
+              <ul>
+                <li>
+                  Only fires on cache miss (~3-7ms EdgeKV read + ~3-7ms write =
+                  ~10ms total measured)
+                </li>
+                <li>Only updates if incoming version is newer</li>
+                <li>Single EdgeKV item update (atomic operation)</li>
+                <li>EdgeKV propagates globally in ~10 seconds</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Management Tab -->
+      <div id="management" class="tab-content">
+        <div class="flowchart">
+          <div class="flow-node">
+            <div class="flow-node-header">
+              <div class="flow-number">📋</div>
+              <div class="flow-title">Management Script: manage-hints.sh</div>
+            </div>
+            <div class="flow-description">
+              External CLI tool for EdgeKV and cache management<br />
+              <strong>Location:</strong> Project root directory<br />
+              <strong>Requires:</strong> Akamai CLI,
+              <code>.edgerc</code> credentials
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <h2
+            style="
+              text-align: center;
+              color: #60a5fa;
+              margin: 2rem 0;
+              font-size: 1.5rem;
+            "
+          >
+            Operation 1: Show Current State
+          </h2>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">1</div>
+              <div class="flow-title">Show All Hints</div>
+            </div>
+            <div class="flow-description">
+              Display current EdgeKV <code>all_hints</code> content with
+              formatted JSON
+            </div>
+            <div class="flow-code">
+              ./manage-hints.sh --show-content # Output: # Current EdgeKV hints
+              content: # { # "example.css": { # "filename": "example.css?v=10",
+              # "lastModified": "Wed, 21 Jul 2026 15:30:00 GMT" # }, #
+              "ruxitagentjs": { # "filename": "ruxitagentjs_ABC_123.js", #
+              "lastModified": null # } # }
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <h2
+            style="
+              text-align: center;
+              color: #60a5fa;
+              margin: 2rem 0;
+              font-size: 1.5rem;
+            "
+          >
+            Operation 2: Delete Specific Key
+          </h2>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">2</div>
+              <div class="flow-title">Delete Single Hint</div>
+            </div>
+            <div class="flow-description">
+              Remove specific key from EdgeKV and purge its cache tag
+            </div>
+            <div class="flow-code">
+              ./manage-hints.sh --delete-key example.css
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node edgekv">
+            <div class="flow-node-header">
+              <div class="flow-number">3</div>
+              <div class="flow-title">EdgeKV: Read → Modify → Write</div>
+            </div>
+            <div class="flow-description">
+              Atomic update of <code>all_hints</code> object
+            </div>
+            <div class="flow-code">
+              # Read current object akamai edgekv read namespace group all_hints
+              # Remove key (done in script) delete allHints["example.css"] #
+              Write back akamai edgekv write namespace group all_hints \
+              --input-file updated_hints.json
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">4</div>
+              <div class="flow-title">Cache Purge (Specific Tag)</div>
+            </div>
+            <div class="flow-description">
+              Purge cache entries tagged with this hint
+            </div>
+            <div class="flow-code">
+              akamai fast-purge invalidate \ --tag "hints-example.css" \
+              --network staging
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <h2
+            style="
+              text-align: center;
+              color: #60a5fa;
+              margin: 2rem 0;
+              font-size: 1.5rem;
+            "
+          >
+            Operation 3: Full Reset
+          </h2>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">5</div>
+              <div class="flow-title">Full Reset Operation</div>
+            </div>
+            <div class="flow-description">
+              Nuclear option: Delete entire EdgeKV item and purge all caches
+              using `early-hints`edge-cache-tag
+            </div>
+            <div class="flow-code">./manage-hints.sh --full-reset</div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node edgekv">
+            <div class="flow-node-header">
+              <div class="flow-number">6</div>
+              <div class="flow-title">EdgeKV: Delete Item</div>
+            </div>
+            <div class="flow-description">
+              Remove entire <code>all_hints</code> item from EdgeKV
+            </div>
+            <div class="flow-code">
+              akamai edgekv delete namespace group all_hints --network staging
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node action">
+            <div class="flow-node-header">
+              <div class="flow-number">7</div>
+              <div class="flow-title">Cache Purge (Global Tag)</div>
+            </div>
+            <div class="flow-description">
+              Purge all responses tagged with <code>early-hints</code>
+            </div>
+            <div class="flow-code">
+              akamai fast-purge invalidate \ --tag "early-hints" \ --network
+              staging # Purges all resources that went through hints-updater #
+              Forces re-discovery of all resources on next cache miss
+            </div>
+          </div>
+
+          <div class="flow-arrow"></div>
+
+          <div class="flow-node">
+            <div class="flow-node-header">
+              <div class="flow-number">8</div>
+              <div class="flow-title">System Reset Complete</div>
+            </div>
+            <div class="flow-description">
+              <strong>Result:</strong> Clean slate<br />
+              • EdgeKV contains no hints<br />
+              • All caches invalidated<br />
+              • hints-reader falls back to static hints only<br />
+              • hints-updater will rebuild hints on next cache misses
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">🔄 When to Use Each Operation</div>
+            <div class="info-box-content">
+              <strong>--show-content</strong><br />
+              • Debugging: verify what hints are stored<br />
+              • Auditing: check for stale or incorrect entries<br />
+              • Monitoring: routine inspection<br /><br />
+
+              <strong>--delete-key &lt;key&gt;</strong><br />
+              • Remove specific outdated hint<br />
+              • Force re-discovery of single resource<br />
+              • Surgical cleanup without global reset<br /><br />
+
+              <strong>--full-reset</strong><br />
+              • After static hints configuration changes<br />
+              • After Property Manager pattern updates<br />
+              • System-wide refresh needed<br />
+              • Major version deployment
+            </div>
+          </div>
+
+          <div class="info-box">
+            <div class="info-box-title">⚙️ Script Configuration</div>
+            <div class="info-box-content">
+              Edit <code>manage-hints.sh</code> variables:
+            </div>
+            <div class="flow-code" style="margin-top: 0.75rem; margin-left: 0">
+              EDGERC_SECTION="default" # Your .edgerc section
+              ACCOUNT_SWITCH_KEY="B-M-XXX:1-XXX" # If multi-account
+              EDGEKV_NAMESPACE="your-namespace" # Your EdgeKV namespace
+              EDGEKV_GROUP="earlyHints" NETWORK="staging" # or "production"
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-box default"></div>
+          <span class="legend-label">Standard Step</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box decision"></div>
+          <span class="legend-label">Decision Point</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box action"></div>
+          <span class="legend-label">Action/Processing</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box external"></div>
+          <span class="legend-label">External System</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-box edgekv"></div>
+          <span class="legend-label">EdgeKV Operation</span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      function switchTab(tabName) {
+        // Hide all tabs
+        document.querySelectorAll(".tab-content").forEach((tab) => {
+          tab.classList.remove("active");
+        });
+
+        // Remove active from all buttons
+        document.querySelectorAll(".tab").forEach((btn) => {
+          btn.classList.remove("active");
+        });
+
+        // Show selected tab
+        document.getElementById(tabName).classList.add("active");
+        event.target.classList.add("active");
+      }
+    </script>
+  </body>
+</html>

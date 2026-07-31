@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Template for local-config.sh - copy this to local-config.sh and fill in your values.
+# local-config.sh is gitignored and will never be committed.
+#   cp local-config.sh.example local-config.sh
+#   source ./local-config.sh
+
+export AKAMAI_EDGEGRID_SECTION="default"
+export AKAMAI_ACCOUNT_SWITCH_KEY=""
+export AKAMAI_EDGEKV_NAMESPACE="CHANGE_ME"
+export EW_GROUP_ID="CHANGE_ME"
+export HINTS_READER_EWID="CHANGE_ME"
+export HINTS_UPDATER_EWID="CHANGE_ME"
+export EW_HOSTNAME="your-hostname.example.com"

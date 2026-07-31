@@ -1,0 +1,31 @@
+# ==============================================================================
+# SECURITY WARNING: EdgeKV tokens contain sensitive credentials!
+# Make sure edgekv_tokens.js files are NEVER committed to version control
+# ==============================================================================
+
+# EdgeWorker tarballs (should be in each project's dist/ directory)
+*.tgz
+
+# Node modules
+node_modules/
+
+# Build output
+built/
+dist/
+
+# EdgeKV tokens - NEVER COMMIT THESE!
+**/vendor/edgekv_tokens.js
+hints-reader/vendor/edgekv_tokens.js
+hints-updater/vendor/edgekv_tokens.js
+
+# Local account-specific config - NEVER COMMIT!
+local-config.sh
+
+# IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*

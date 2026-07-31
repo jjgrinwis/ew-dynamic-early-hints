@@ -1,0 +1,35 @@
+{
+  "name": "hints-reader",
+  "version": "0.0.1",
+  "description": "HTTP 103 Early Hints reader - merges static and dynamic hints from EdgeKV",
+  "main": "built/main.js",
+  "type": "module",
+  "config": {
+    "ewid": "CHANGE_ME",
+    "edgerc_section": "default",
+    "accountswitchkey": "",
+    "tier": "200",
+    "ew_group_id": "CHANGE_ME",
+    "ew_name": "hints-reader",
+    "hostname": "your-hostname.example.com"
+  },
+  "scripts": {
+    "build": "tsc",
+    "create-id": "bash -c 'args=(--section \"${AKAMAI_EDGEGRID_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"$AKAMAI_ACCOUNT_SWITCH_KEY\" ] && args+=(--accountkey \"$AKAMAI_ACCOUNT_SWITCH_KEY\"); akamai edgeworkers \"${args[@]}\" create-id \"${EW_GROUP_ID:-$npm_package_config_ew_group_id}\" \"$npm_package_config_ew_name\"'",
+    "package": "npm run package:bundle && npm run package:vendor && npm run package:tarball",
+    "package:bundle": "mkdir -p built && jq -n --arg version \"$npm_package_version\" --arg desc \"$npm_package_description\" '{\"edgeworker-version\": $version, \"description\": $desc}' > built/bundle.json",
+    "package:vendor": "cp vendor/edgekv.js vendor/edgekv_tokens.js built/",
+    "package:tarball": "mkdir -p dist && cd built && tar czf ../dist/hints-reader_$npm_package_version.tgz *",
+    "upload": "bash -c 'args=(--section \"${AKAMAI_EDGEGRID_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"$AKAMAI_ACCOUNT_SWITCH_KEY\" ] && args+=(--accountkey \"$AKAMAI_ACCOUNT_SWITCH_KEY\"); akamai edgeworkers \"${args[@]}\" upload \"${HINTS_READER_EWID:-$npm_package_config_ewid}\" --bundle dist/hints-reader_$npm_package_version.tgz'",
+    "activate:staging": "bash -c 'args=(--section \"${AKAMAI_EDGEGRID_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"$AKAMAI_ACCOUNT_SWITCH_KEY\" ] && args+=(--accountkey \"$AKAMAI_ACCOUNT_SWITCH_KEY\"); akamai edgeworkers \"${args[@]}\" activate \"${HINTS_READER_EWID:-$npm_package_config_ewid}\" staging $npm_package_version'",
+    "activate:production": "bash -c 'args=(--section \"${AKAMAI_EDGEGRID_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"$AKAMAI_ACCOUNT_SWITCH_KEY\" ] && args+=(--accountkey \"$AKAMAI_ACCOUNT_SWITCH_KEY\"); akamai edgeworkers \"${args[@]}\" activate \"${HINTS_READER_EWID:-$npm_package_config_ewid}\" production $npm_package_version'",
+    "deploy:staging": "npm run build && npm run package && npm run upload && npm run activate:staging",
+    "deploy:production": "npm run build && npm run package && npm run upload && npm run activate:production",
+    "generate-token": "bash -c 'args=(--section \"${AKAMAI_EDGEGRID_SECTION:-$npm_package_config_edgerc_section}\"); [ -n \"$AKAMAI_ACCOUNT_SWITCH_KEY\" ] && args+=(--accountkey \"$AKAMAI_ACCOUNT_SWITCH_KEY\"); akamai edgeworkers \"${args[@]}\" auth --expiry 600 \"${EW_HOSTNAME:-$npm_package_config_hostname}\" --jsonout | jq -r .msg'",
+    "clean": "rm -rf built dist"
+  },
+  "devDependencies": {
+    "@types/akamai-edgeworkers": "^1.0.0",
+    "typescript": "^5.0.0"
+  }
+}
