@@ -2,12 +2,17 @@
   "hooks": {
     "PostToolUse": [
       {
-        "pattern": "*.md",
-        "command": "npx markdownlint-cli2 $CLAUDE_FILE || true"
-      },
-      {
-        "pattern": "*.json",
-        "command": "python3 -m json.tool $CLAUDE_FILE > /dev/null 2>&1 || echo 'Invalid JSON: '$CLAUDE_FILE"
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; case \"$f\" in *.md) npx markdownlint-cli2 \"$f\" || true;; esac; }"
+          },
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // .tool_response.filePath' | { read -r f; case \"$f\" in *.json) python3 -m json.tool \"$f\" > /dev/null 2>&1 || echo \"Invalid JSON: $f\";; esac; }"
+          }
+        ]
       }
     ]
   }

@@ -174,7 +174,7 @@ const ALL_HINTS_KEY = "all_hints";
  */
 function buildHintFromPath(path: string): string {
   // Extract file extension to determine the 'as' type (from path, ignoring query string)
-  const pathWithoutQuery = path.split('?')[0];
+  const pathWithoutQuery = path.split("?")[0];
   const extension = pathWithoutQuery.split(".").pop()?.toLowerCase() || "";
   let asType = "script";
 
@@ -194,6 +194,7 @@ function buildHintFromPath(path: string): string {
     extension === "jpeg" ||
     extension === "gif" ||
     extension === "webp" ||
+    extension === "avif" ||
     extension === "svg"
   ) {
     asType = "image";
