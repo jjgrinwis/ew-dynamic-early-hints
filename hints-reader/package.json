@@ -1,6 +1,6 @@
 {
   "name": "hints-reader",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "HTTP 103 Early Hints reader - merges static and dynamic hints from EdgeKV",
   "main": "built/main.js",
   "type": "module",
