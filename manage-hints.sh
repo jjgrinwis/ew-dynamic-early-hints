@@ -10,7 +10,7 @@
 # - Purge a specific object by URL path (for first-time warmup/reset)
 #
 # Important Notes:
-# - Make sure to set AKAMAI_EDGEGRID_SECTION, AKAMAI_EDGEKV_NAMESPACE, and optionally
+# - Make sure to set AKAMAI_EDGERC_SECTION, EDGEKV_NAMESPACE, and optionally
 #   AKAMAI_ACCOUNT_SWITCH_KEY environment variables before running this script!
 #
 # Usage:
@@ -27,10 +27,10 @@
 
 set -euo pipefail
 
-# Configuration from hints-reader package.json
-EDGERC_SECTION="${AKAMAI_EDGEGRID_SECTION:-default}"
+# Configuration from local-config.sh (checked by require_config)
+EDGERC_SECTION="${AKAMAI_EDGERC_SECTION:-}"
 ACCOUNT_SWITCH_KEY="${AKAMAI_ACCOUNT_SWITCH_KEY:-}"
-EDGEKV_NAMESPACE="${AKAMAI_EDGEKV_NAMESPACE:-CHANGE_ME}"
+EDGEKV_NAMESPACE="${EDGEKV_NAMESPACE:-}"
 EDGEKV_GROUP="earlyHints"
 NETWORK="staging"  # or "production"
 
@@ -81,15 +81,15 @@ OPTIONS:
 
 EXAMPLES:
     # Set env vars for this shell session
-    export AKAMAI_EDGEGRID_SECTION=default
-    export AKAMAI_EDGEKV_NAMESPACE=mynamespace
+    export AKAMAI_EDGERC_SECTION=default
+    export EDGEKV_NAMESPACE=mynamespace
     export AKAMAI_ACCOUNT_SWITCH_KEY='B-M-XXXX:1-YYYY'
 
     # Or set env vars for a single command
-    AKAMAI_EDGEGRID_SECTION=default AKAMAI_EDGEKV_NAMESPACE=mynamespace AKAMAI_ACCOUNT_SWITCH_KEY='B-M-XXXX:1-YYYY' $0 --show-content
+    AKAMAI_EDGERC_SECTION=default EDGEKV_NAMESPACE=mynamespace AKAMAI_ACCOUNT_SWITCH_KEY='B-M-XXXX:1-YYYY' $0 --show-content
 
     # Run without account switch key
-    AKAMAI_EDGEGRID_SECTION=default AKAMAI_EDGEKV_NAMESPACE=mynamespace $0 --show-content
+    AKAMAI_EDGERC_SECTION=default EDGEKV_NAMESPACE=mynamespace $0 --show-content
 
     # Show current hints in EdgeKV
     $0 --show-content
@@ -107,7 +107,7 @@ NOTES:
     - Full reset should be run after any Property Manager configuration change
     - Delete key is useful for targeted cleanup or rollback
     - All hints are stored in a single EdgeKV item "all_hints" for efficiency
-    - AKAMAI_EDGEGRID_SECTION, AKAMAI_EDGEKV_NAMESPACE, and AKAMAI_ACCOUNT_SWITCH_KEY can be provided via environment variables
+    - AKAMAI_EDGERC_SECTION, EDGEKV_NAMESPACE, and AKAMAI_ACCOUNT_SWITCH_KEY can be provided via environment variables
     - If AKAMAI_ACCOUNT_SWITCH_KEY is unset/empty, the script does not pass --accountkey
     - Network is currently set to: $NETWORK
     - Edit this script to change network or credentials
@@ -357,20 +357,29 @@ function delete_key() {
     log_info "Key deleted: $key"
 }
 
+function require_config() {
+    : "${EDGERC_SECTION:?AKAMAI_EDGERC_SECTION not set - source ./local-config.sh first}"
+    : "${EDGEKV_NAMESPACE:?EDGEKV_NAMESPACE not set - source ./local-config.sh first}"
+}
+
 # Main script
 check_dependencies
 
 case "${1:-}" in
     --full-reset)
+        require_config
         full_reset
         ;;
     --delete-key)
+        require_config
         delete_key "${2:-}"
         ;;
     --show-content)
+        require_config
         show_edgekv_content
         ;;
     --purge-path)
+        require_config
         purge_by_path "${2:-}"
         ;;
     -h|--help)

@@ -25,7 +25,7 @@ export interface EdgeKVOptions {
 /**
  * Options for EdgeKV read operations
  */
-export interface GetOptions<T = any> {
+export interface GetOptions<T = unknown> {
   /**
    * The item key to retrieve
    */
@@ -49,7 +49,7 @@ export interface PutOptions {
   /**
    * The value to write (will be JSON-stringified for putJson)
    */
-  value: any;
+  value: unknown;
 }
 
 /**
@@ -82,7 +82,7 @@ export class EdgeKV {
    * @param options - Read options including item key and optional default value
    * @returns Promise resolving to the parsed JSON object or default value if not found
    */
-  getJson<T = any>(options: GetOptions<T>): Promise<T | null>;
+  getJson<T = unknown>(options: GetOptions<T>): Promise<T | null>;
 
   /**
    * Write a text value to EdgeKV (blocking)

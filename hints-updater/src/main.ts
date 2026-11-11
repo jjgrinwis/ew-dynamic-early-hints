@@ -31,9 +31,9 @@ import { EdgeKV } from "./edgekv.js";
 import { logger } from "log";
 
 // EdgeKV configuration
-// REQUIRED: Replace with your own EdgeKV namespace (must already exist).
-// Must match the namespace used in hints-reader/src/main.ts.
-const EDGEKV_NAMESPACE = "jgrinwiskv";
+// "__EDGEKV_NAMESPACE__" is a build-time placeholder, replaced in built/main.js
+// by EDGEKV_NAMESPACE from local-config.sh (see the build:namespace script).
+const EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__";
 const EDGEKV_GROUP = "earlyHints";
 
 /**
@@ -133,33 +133,6 @@ const edgeKv: EdgeKV = new EdgeKV({
   namespace: EDGEKV_NAMESPACE,
   group: EDGEKV_GROUP,
 });
-
-/**
- * Build a hint string for a file following RFC 8297
- *
- * @param path - The full path to create a hint for
- * @returns Link header entry in RFC 8297 format
- */
-function buildHint(path: string): string {
-  // Extract file extension to determine the 'as' type (from path, ignoring query string)
-  const pathWithoutQuery = path.split('?')[0];
-  const extension = pathWithoutQuery.split('.').pop()?.toLowerCase() || '';
-  let asType = 'script'; // Default to script
-
-  if (extension === 'css') {
-    asType = 'style';
-  } else if (extension === 'js') {
-    asType = 'script';
-  } else if (extension === 'woff' || extension === 'woff2' || extension === 'ttf') {
-    asType = 'font';
-  } else if (extension === 'png' || extension === 'jpg' || extension === 'jpeg' || extension === 'gif' || extension === 'webp' || extension === 'svg') {
-    asType = 'image';
-  }
-
-  // Build the Link header entry following RFC 8297
-  // Format: "<url>; rel=preload; as=type"
-  return `<${path}>; rel=preload; as=${asType}`;
-}
 
 /**
  * Extract a logical key (pattern name) from path for hint deduplication

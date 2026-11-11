@@ -195,17 +195,16 @@ akamai edgekv list ns <production|staging>
 **What is an EdgeWorker ID?**
 An EdgeWorker ID is a unique identifier that Akamai uses to track your deployed code. You need one ID per EdgeWorker (so two IDs total: one for hints-reader, one for hints-updater).
 
-**Create EdgeWorker IDs using npm scripts.** Every script that touches an account-specific value (`edgerc_section`, `accountswitchkey`, `ewid`, `ew_group_id`, `hostname`) checks an environment variable first and only falls back to the `package.json` placeholder if that variable is unset — so you have two ways to supply real values:
-
-**Option 1: `local-config.sh` (Recommended)** — keeps `package.json` free of real IDs, so the repo stays safe to commit/push at any time (this is how this project's own values are kept out of git):
+**Create EdgeWorker IDs using npm scripts.** Every account-specific value (`.edgerc` section, account switch key, EdgeWorker IDs, group ID, hostname, EdgeKV namespace) lives only in `local-config.sh` — never in `package.json`, so the repo stays safe to commit/push at any time. The npm scripts read these environment variables directly and abort with `<VAR>: not set - source ./local-config.sh first` if you forget to source it:
 
 ```bash
 # Copy the template once and fill in your real values
 cp local-config.sh.example local-config.sh   # gitignored, never committed
 
 # Edit local-config.sh:
-export AKAMAI_EDGEGRID_SECTION="default"      # Your .edgerc section name
+export AKAMAI_EDGERC_SECTION="default"        # Your .edgerc section name
 export AKAMAI_ACCOUNT_SWITCH_KEY=""           # Only if needed (ask your Akamai admin)
+export EDGEKV_NAMESPACE="your-namespace-name" # Namespace from step 5
 export EW_GROUP_ID="12345"                    # Your group ID from step 4
 export HINTS_READER_EWID=""                   # Filled in after create-id below
 export HINTS_UPDATER_EWID=""                  # Filled in after create-id below
@@ -222,115 +221,36 @@ cd ../hints-updater && npm run create-id
 
 After updating `local-config.sh`, re-run `source ./local-config.sh` before any further `npm run` command (deploy, generate-token, etc.) in that shell session.
 
-**Option 2: Hardcode directly in `package.json`** — simpler for a one-off setup where you don't need the repo to stay push-safe (e.g. a private, single-purpose deployment):
+`create-id` registers each EdgeWorker on the resource tier set in `config.tier` of its `package.json` (default `200`, required for EdgeKV). Run `npm run list-tiers` to see which tiers your contract has.
+
+### 7. Create EdgeKV Access Tokens
+
+Now that you have EdgeWorker IDs, create one token per EdgeWorker. Each project's `generate-edgekv-token` script creates a token scoped to its own EdgeWorker ID, saves it to that project's `vendor/edgekv_tokens.js`, and adds the required `namespace-` prefix to the key:
 
 ```bash
-# Configure hints-reader
-cd hints-reader
+source ./local-config.sh
 
-# Edit package.json - update these values:
-# - config.ew_group_id: Your group ID from step 4
-# - config.edgerc_section: Your .edgerc section name (usually "default")
-# - config.accountswitchkey: Only if needed (ask your Akamai admin)
+# Read-only token for hints-reader
+cd hints-reader && EXPIRY=2027-12-01 npm run generate-edgekv-token
 
-# Create EdgeWorker ID
-npm run create-id
-
-# Note the EdgeWorker ID returned (e.g., 109849)
-# Update package.json config.ewid with this ID
-
-# Repeat for hints-updater
-cd ../hints-updater
-
-# Edit package.json with same group_id and edgerc_section
-# Create EdgeWorker ID
-npm run create-id
-
-# Note the EdgeWorker ID returned (e.g., 109850)
-# Update package.json config.ewid with this ID
+# Read/write token for hints-updater
+cd ../hints-updater && EXPIRY=2027-12-01 npm run generate-edgekv-token
 ```
 
-**Multiple resource tiers on your contract?** `create-id` assigns a default resource tier automatically. If your contract has more than one (uncommon), list them with `akamai edgeworkers list-restiers --section default` and pass the correct one explicitly: `akamai edgeworkers --section default create-id <group-id> <name> --resourceTierId <id>`.
+**Script options** (pass inline):
 
-### 7. Create EdgeKV Access Token
+- `EXPIRY=yyyy-mm-dd` - Required; token expiry date
+- `EDGEKV_TOKEN_PERMS` - Permissions (default `r` for hints-reader, `rw` for hints-updater)
+- `EDGEKV_TOKEN_NAME` - Token name (default `<ew_name>-<timestamp>`)
 
-Now that you have EdgeWorker IDs, create the access token:
-
-```bash
-# Create token and save directly to hints-reader
-cd hints-reader/vendor
-akamai edgekv create token earlyhints \
-  --staging=allow \
-  --production=allow \
-  --ewids=<hints-reader-id>,<hints-updater-id> \
-  --namespace=namespace-<your-namespace-name>+rwd \
-  --save_path=./
-
-# This creates edgekv_tokens.js automatically!
-
-# Copy to hints-updater as well
-cp edgekv_tokens.js ../../hints-updater/vendor/
-
-# Example with actual values:
-# cd hints-reader/vendor
-# akamai edgekv create token earlyhints \
-#   --staging=allow \
-#   --production=allow \
-#   --ewids=109849,109850 \
-#   --namespace=namespace-mycompany-earlyhints+rwd \
-#   --save_path=./
-# cp edgekv_tokens.js ../../hints-updater/vendor/
-```
-
-**Token Parameters Explained:**
-
-- `earlyhints` - Token name (choose your own)
-- `--staging=allow` - Allow on staging network
-- `--production=allow` - Allow on production network
-- `--ewids=` - Comma-separated EdgeWorker IDs (no spaces!)
-- `--namespace=namespace-<name>+rwd` - Namespace with permissions:
-  - `+r` - Read only
-  - `+rw` - Read/Write
-  - `+rwd` - Read/Write/Delete (recommended)
-- `--save_path=./` - Save to current directory (creates `edgekv_tokens.js`)
+Separate tokens give least privilege (hints-reader can't modify EdgeKV) and independent rotation.
 
 **CRITICAL**:
 
-- The namespace format MUST be `namespace-<your-namespace-name>+<permissions>`
-- The command automatically creates the correctly formatted `edgekv_tokens.js` file
-- Copy the file to BOTH hints-reader and hints-updater vendor directories
+- `--namespace` on `akamai edgekv create token` takes the **bare** namespace name. The `namespace-` prefix belongs only in the key of the generated `edgekv_tokens.js` (the script fixes this up for you)
+- If an existing token file is present, the script keeps it as a backup and restores it if token creation fails
 - NEVER commit `edgekv_tokens.js` files - they're already in .gitignore
 - Template files (`edgekv_tokens.js.template`) are for reference only
-
-**Security Best Practice - Separate Tokens (Optional):**
-
-For enhanced security, you can create separate tokens with different permissions:
-
-```bash
-# Token 1: Read-only for hints-reader
-cd hints-reader/vendor
-akamai edgekv create token earlyhints-reader \
-  --staging=allow \
-  --production=allow \
-  --ewids=<hints-reader-id> \
-  --namespace=namespace-<your-namespace-name>+r \
-  --save_path=./
-
-# Token 2: Read/Write/Delete for hints-updater
-cd ../../hints-updater/vendor
-akamai edgekv create token earlyhints-updater \
-  --staging=allow \
-  --production=allow \
-  --ewids=<hints-updater-id> \
-  --namespace=namespace-<your-namespace-name>+rwd \
-  --save_path=./
-```
-
-This approach provides:
-
-- **Principle of least privilege** - hints-reader only gets read access
-- **Better security** - If hints-reader is compromised, EdgeKV can't be modified
-- **Separate token rotation** - Revoke/renew independently
 
 ### 8. Configure Static Hints
 
@@ -352,66 +272,50 @@ export const staticHints = [
 
 ### 9. Update EdgeKV Configuration
 
-**REQUIRED**: Both EdgeWorkers ship with `EDGEKV_NAMESPACE = "CHANGE_ME"` — a placeholder that will fail at runtime. You must replace it in **both** files with the namespace you created in step 4, and it must be identical in both:
+No source edits needed. Both EdgeWorkers ship with `EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__"`, a build-time placeholder. `npm run build` runs `tsc`, then `build:namespace` replaces the placeholder in `built/main.js` with `EDGEKV_NAMESPACE` from `local-config.sh`. That way both EdgeWorkers always use the same namespace, and the real name never lands in git. The build fails if `EDGEKV_NAMESPACE` is unset or if a placeholder survives.
 
 ```typescript
 // hints-reader/src/main.ts and hints-updater/src/main.ts
-const EDGEKV_NAMESPACE = "your-namespace-name"; // Change this in BOTH files!
+const EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__"; // substituted at build time
 const EDGEKV_GROUP = "earlyHints";
 ```
 
 ### 10. Deploy to Staging
 
-If you used `local-config.sh` (step 6, Option 1), source it first in each shell session — otherwise the deploy scripts fall back to whatever placeholders are in `package.json`:
+Source `local-config.sh` first in each shell session (the scripts abort if it isn't). `deploy:*` runs lint → build → package → upload → activate:
 
 ```bash
+source ./local-config.sh
+
 # Deploy hints-reader
 cd hints-reader
 npm install
-source ../local-config.sh   # skip if you hardcoded values in package.json (step 6, Option 2)
 npm run deploy:staging
 
 # Deploy hints-updater
 cd ../hints-updater
 npm install
-source ../local-config.sh   # skip if you hardcoded values in package.json (step 6, Option 2)
 npm run deploy:staging
 ```
 
 ### 11. Configure Reset Management Script
 
-The management script supports both direct configuration and environment variables:
-
-**Option 1: Configure via Environment Variables (Recommended)**
+The management script reads `AKAMAI_EDGERC_SECTION`, `EDGEKV_NAMESPACE` and (optionally) `AKAMAI_ACCOUNT_SWITCH_KEY` from `local-config.sh`, and aborts if the first two are unset:
 
 ```bash
-# Set environment variables for this session
-export AKAMAI_EDGEGRID_SECTION="default"
-export AKAMAI_ACCOUNT_SWITCH_KEY="B-M-XXX:1-XXX"  # Optional - see note below
+source ./local-config.sh
 
 # Make script executable
 chmod +x manage-hints.sh
 
-# Run commands (uses env vars)
+# Run commands
 ./manage-hints.sh --show-content
 
-# Or set for a single command
-AKAMAI_EDGEGRID_SECTION=production ./manage-hints.sh --show-content
+# Or override for a single command
+AKAMAI_EDGERC_SECTION=production ./manage-hints.sh --show-content
 ```
 
-**Option 2: Edit Script Defaults**
-
-```bash
-# Edit manage-hints.sh
-nano manage-hints.sh  # or use your preferred editor
-
-# Update these variables (lines 24-28):
-EDGERC_SECTION="${AKAMAI_EDGEGRID_SECTION:-default}"
-ACCOUNT_SWITCH_KEY="${AKAMAI_ACCOUNT_SWITCH_KEY:-}"
-EDGEKV_NAMESPACE="your-namespace-name"      # Your EdgeKV namespace (from step 5)
-EDGEKV_GROUP="earlyHints"                   # Group name (from step 5)
-NETWORK="staging"                           # Start with staging
-```
+The EdgeKV group (`EDGEKV_GROUP="earlyHints"`) and network (`NETWORK="staging"`) are set near the top of `manage-hints.sh`.
 
 **About ACCOUNT_SWITCH_KEY:**
 
@@ -689,7 +593,7 @@ Debug headers (`Pragma: akamai-x-ew-debug`) are designed for development and req
    Add to `package:bundle` script in both EdgeWorkers' `package.json`:
 
    ```json
-   "package:bundle": "mkdir -p built && jq -n --arg version \"$npm_package_version\" --arg desc \"$npm_package_description\" --argjson logging '{\"level\":\"info\",\"schema\":\"v1\",\"ds2id\":12345}' '{\"edgeworker-version\": $version, \"description\": $desc, \"logging\": $logging}' > built/bundle.json"
+   "package:bundle": "mkdir -p built && jq -n --arg version \"$npm_package_version\" --arg desc \"$(jq -r .description package.json)\" --argjson logging '{\"level\":\"info\",\"schema\":\"v1\",\"ds2id\":12345}' '{\"edgeworker-version\": $version, \"description\": $desc, \"logging\": $logging}' > built/bundle.json"
    ```
 
 5. **Deploy:**

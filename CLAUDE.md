@@ -396,8 +396,8 @@ Look for these log messages in `x-akamai-edgeworker-onclientrequest-log`:
 
 **Two separate EdgeWorkers** must be deployed independently:
 
-- `hints-updater` (EW ID configured in `hints-updater/package.json`) - Writes to EdgeKV on cache miss
-- `hints-reader` (EW ID configured in `hints-reader/package.json`) - Reads from EdgeKV on client request
+- `hints-updater` (EW ID `HINTS_UPDATER_EWID` in `local-config.sh`) - Writes to EdgeKV on cache miss
+- `hints-reader` (EW ID `HINTS_READER_EWID` in `local-config.sh`) - Reads from EdgeKV on client request
 
 **Critical deployment constraint**: Akamai does not allow re-activating an already-active version. Always bump `package.json` version before deploying.
 

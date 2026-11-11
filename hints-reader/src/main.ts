@@ -27,9 +27,9 @@ import { staticHints as staticHintsConfig } from "./static_hints_config.js";
 import { TextEncoder } from "encoding";
 
 // EdgeKV configuration
-// REQUIRED: Replace with your own EdgeKV namespace (must already exist).
-// Must match the namespace used in hints-updater/src/main.ts.
-const EDGEKV_NAMESPACE = "jgrinwiskv";
+// "__EDGEKV_NAMESPACE__" is a build-time placeholder, replaced in built/main.js
+// by EDGEKV_NAMESPACE from local-config.sh (see the build:namespace script).
+const EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__";
 const EDGEKV_GROUP = "earlyHints";
 
 // Property Manager User-Defined Variable (PMUSER) name
