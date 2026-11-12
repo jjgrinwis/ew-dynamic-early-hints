@@ -231,19 +231,21 @@ Now that you have EdgeWorker IDs, create one token per EdgeWorker. Each project'
 source ./local-config.sh
 
 # Read-only token for hints-reader
-cd hints-reader && EXPIRY=2027-12-01 npm run generate-edgekv-token
+cd hints-reader && npm run generate-edgekv-token
 
 # Read/write token for hints-updater
-cd ../hints-updater && EXPIRY=2027-12-01 npm run generate-edgekv-token
+cd ../hints-updater && npm run generate-edgekv-token
 ```
 
-**Script options** (pass inline):
+Tokens refresh automatically and don't expire, so no expiry date is needed ([Akamai docs](https://techdocs.akamai.com/edgekv/docs/generate-and-retrieve-edgekv-access-tokens#enhanced-token-workflow)). They stay valid until you revoke them. This requires helper library `edgekv.js` 0.6.2 or later; both projects bundle 0.6.3.
 
-- `EXPIRY=yyyy-mm-dd` - Required; token expiry date
+**Script options** (all optional, pass inline):
+
+- `EXPIRY=yyyy-mm-dd` - Only if you want the token to stop working on a fixed date
 - `EDGEKV_TOKEN_PERMS` - Permissions (default `r` for hints-reader, `rw` for hints-updater)
 - `EDGEKV_TOKEN_NAME` - Token name (default `<ew_name>-<timestamp>`)
 
-Separate tokens give least privilege (hints-reader can't modify EdgeKV) and independent rotation.
+Separate tokens give least privilege (hints-reader can't modify EdgeKV) and can be revoked independently.
 
 **CRITICAL**:
 
@@ -939,7 +941,7 @@ The token file needs `namespace-` prefix:
 
 - **Never commit** `vendor/edgekv_tokens.js` - contains access credentials
 - **Verify .gitignore** includes `vendor/edgekv_tokens.js`
-- **Rotate tokens** annually or when team members change
+- **Revoke and recreate tokens** when team members change or a token may have leaked (tokens no longer expire on their own)
 - **Limit token scope** to only required EdgeWorker IDs
 - **Use separate tokens** for staging and production if possible
 

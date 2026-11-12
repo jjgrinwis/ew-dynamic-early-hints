@@ -8,10 +8,8 @@
 // 3. NEVER commit edgekv_tokens.js to version control!
 // 4. The key MUST use "namespace-<your-namespace-name>" format
 //
-// To create a token:
-// akamai edgekv create token <your-namespace-name> \
-//   --ewids <hints-reader-id>,<hints-updater-id> \
-//   --expiry 2025-12-31
+// To create a token (no expiry needed - tokens auto-refresh):
+//   source ./local-config.sh && npm run generate-edgekv-token
 //
 // ==============================================================================
 
