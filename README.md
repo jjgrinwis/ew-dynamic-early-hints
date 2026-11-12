@@ -237,11 +237,18 @@ cd hints-reader && npm run generate-edgekv-token
 cd ../hints-updater && npm run generate-edgekv-token
 ```
 
-Tokens refresh automatically and don't expire, so no expiry date is needed ([Akamai docs](https://techdocs.akamai.com/edgekv/docs/generate-and-retrieve-edgekv-access-tokens#enhanced-token-workflow)). They stay valid until you revoke them. This requires helper library `edgekv.js` 0.6.2 or later; both projects bundle 0.6.3.
+**Tokens refresh automatically: no expiry date needed.** EdgeKV tokens created since August 2024 are refreshed by Akamai on a schedule and never expire. They stay valid until you revoke them ([Akamai docs](https://techdocs.akamai.com/edgekv/docs/generate-and-retrieve-edgekv-access-tokens#enhanced-token-workflow)). You don't need to rotate them or redeploy the EdgeWorkers to keep EdgeKV access working. The CLI confirms this when the token is created:
+
+```
+Expiry date:          INDEFINITE
+Next scheduled refresh date:  <date>
+```
+
+Auto-refreshing tokens require helper library `edgekv.js` 0.6.2 or later; both projects bundle 0.6.3.
 
 **Script options** (all optional, pass inline):
 
-- `EXPIRY=yyyy-mm-dd` - Only if you want the token to stop working on a fixed date
+- `EXPIRY=yyyy-mm-dd` - Optional. Leave it unset for an auto-refreshing token (recommended). Set it only if you want the token to stop working on a fixed date; `--expiry` is passed to the CLI only when `EXPIRY` is set
 - `EDGEKV_TOKEN_PERMS` - Permissions (default `r` for hints-reader, `rw` for hints-updater)
 - `EDGEKV_TOKEN_NAME` - Token name (default `<ew_name>-<timestamp>`)
 
