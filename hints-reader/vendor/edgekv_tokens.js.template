@@ -3,13 +3,13 @@
 // ==============================================================================
 //
 // IMPORTANT:
-// 1. Copy this file to edgekv_tokens.js (remove .template extension)
+// 1. Copy this file to edgekv_tokens.<namespace>.js (one per environment/namespace)
 // 2. Replace the placeholder values with your actual token details
-// 3. NEVER commit edgekv_tokens.js to version control!
+// 3. NEVER commit edgekv_tokens*.js to version control!
 // 4. The key MUST use "namespace-<your-namespace-name>" format
 //
 // To create a token (no expiry needed - tokens auto-refresh):
-//   source ./local-config.sh && npm run generate-edgekv-token
+//   source ./local-config.<env>.sh && npm run generate-edgekv-token
 //
 // ==============================================================================
 

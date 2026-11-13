@@ -22,9 +22,10 @@
  * - This happens when a cold edge POP serves an old page reference, causing a
  *   cache miss on an outdated URL that's older than what's already in EdgeKV
  *
- * Cache tags:
- * - "early-hints" - broad tag for all managed entries (used in full reset)
- * - "hints-<key>" - specific tag per logical key (used for targeted purge)
+ * Cache tags (scoped by namespace, so purging UAT never touches prod - tag
+ * purges apply to every object with that tag on the network):
+ * - "early-hints-<namespace>" - broad tag for all managed entries (used in full reset)
+ * - "hints-<namespace>-<key>" - specific tag per logical key (used for targeted purge)
  */
 
 import { EdgeKV } from "./edgekv.js";
@@ -35,6 +36,10 @@ import { logger } from "log";
 // by EDGEKV_NAMESPACE from local-config.sh (see the build:namespace script).
 const EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__";
 const EDGEKV_GROUP = "earlyHints";
+
+// Cache tag prefixes include the namespace (one namespace per environment)
+const BROAD_CACHE_TAG = `early-hints-${EDGEKV_NAMESPACE}`;
+const KEY_CACHE_TAG_PREFIX = `hints-${EDGEKV_NAMESPACE}-`;
 
 /**
  * EdgeKV value structure for a single hint entry
@@ -228,7 +233,7 @@ export async function onOriginResponse(
       if (!shouldReplace) {
         logger.log(`Skipping update: existing entry is newer or equal (${existingEntry.path})`);
         // Still set cache tag even though we're not updating
-        response.setHeader('Edge-Cache-Tag', `early-hints,hints-${logicalKey}`);
+        response.setHeader('Edge-Cache-Tag', `${BROAD_CACHE_TAG},${KEY_CACHE_TAG_PREFIX}${logicalKey}`);
         return;
       }
     }
@@ -255,7 +260,7 @@ export async function onOriginResponse(
   }
 
   // Set Edge-Cache-Tag response header for Fast Purge capability
-  const cacheTags = `early-hints,hints-${logicalKey}`;
+  const cacheTags = `${BROAD_CACHE_TAG},${KEY_CACHE_TAG_PREFIX}${logicalKey}`;
 
   try {
     response.setHeader('Edge-Cache-Tag', cacheTags);

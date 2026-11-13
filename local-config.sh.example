@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
-# Template for local-config.sh - copy this to local-config.sh and fill in your values.
-# local-config.sh is gitignored and will never be committed.
-#   cp local-config.sh.example local-config.sh
-#   source ./local-config.sh
+# Template for a per-environment local config - one file per environment, e.g.:
+#   cp local-config.sh.example local-config.uat.sh
+#   cp local-config.sh.example local-config.prod.sh
+# local-config*.sh is gitignored and will never be committed.
+# Source the one for the environment you're working on before any npm script
+# or manage-hints.sh:
+#   source ./local-config.uat.sh
+#
+# Each environment has its own EdgeWorker IDs, hostname and EdgeKV namespace.
+# The namespace also selects the token file (vendor/edgekv_tokens.<namespace>.js)
+# and scopes the cache tags, so environments never share tokens or purges.
 
 export AKAMAI_EDGERC_SECTION="default"
 export AKAMAI_ACCOUNT_SWITCH_KEY=""
-export EDGEKV_NAMESPACE="CHANGE_ME"
+export EDGEKV_NAMESPACE="CHANGE_ME"          # e.g. earlyhints-uat / earlyhints-prod
+export EDGEKV_NETWORK="production"           # network manage-hints.sh reads/purges
 export EW_GROUP_ID="CHANGE_ME"
 export HINTS_READER_EWID="CHANGE_ME"
 export HINTS_UPDATER_EWID="CHANGE_ME"

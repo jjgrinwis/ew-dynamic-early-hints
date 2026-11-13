@@ -27,15 +27,16 @@
 
 set -euo pipefail
 
-# Configuration from local-config.sh (checked by require_config)
+# Configuration from local-config.<env>.sh (checked by require_config)
 EDGERC_SECTION="${AKAMAI_EDGERC_SECTION:-}"
 ACCOUNT_SWITCH_KEY="${AKAMAI_ACCOUNT_SWITCH_KEY:-}"
 EDGEKV_NAMESPACE="${EDGEKV_NAMESPACE:-}"
 EDGEKV_GROUP="earlyHints"
-NETWORK="staging"  # or "production"
+NETWORK="${EDGEKV_NETWORK:-}"  # "staging" or "production"
 
-# Cache tag configuration
-BROAD_TAG="early-hints"
+# Cache tag configuration - must match hints-updater (tags are scoped by namespace)
+BROAD_TAG="early-hints-${EDGEKV_NAMESPACE}"
+KEY_TAG_PREFIX="hints-${EDGEKV_NAMESPACE}-"
 
 # Colors for output
 RED='\033[0;31m'
@@ -80,16 +81,8 @@ OPTIONS:
     -h, --help               Show this help message
 
 EXAMPLES:
-    # Set env vars for this shell session
-    export AKAMAI_EDGERC_SECTION=default
-    export EDGEKV_NAMESPACE=mynamespace
-    export AKAMAI_ACCOUNT_SWITCH_KEY='B-M-XXXX:1-YYYY'
-
-    # Or set env vars for a single command
-    AKAMAI_EDGERC_SECTION=default EDGEKV_NAMESPACE=mynamespace AKAMAI_ACCOUNT_SWITCH_KEY='B-M-XXXX:1-YYYY' $0 --show-content
-
-    # Run without account switch key
-    AKAMAI_EDGERC_SECTION=default EDGEKV_NAMESPACE=mynamespace $0 --show-content
+    # Select the environment by sourcing its config (namespace, network, credentials)
+    source ./local-config.uat.sh     # or ./local-config.prod.sh
 
     # Show current hints in EdgeKV
     $0 --show-content
@@ -107,10 +100,11 @@ NOTES:
     - Full reset should be run after any Property Manager configuration change
     - Delete key is useful for targeted cleanup or rollback
     - All hints are stored in a single EdgeKV item "all_hints" for efficiency
-    - AKAMAI_EDGERC_SECTION, EDGEKV_NAMESPACE, and AKAMAI_ACCOUNT_SWITCH_KEY can be provided via environment variables
+    - AKAMAI_EDGERC_SECTION, EDGEKV_NAMESPACE, EDGEKV_NETWORK and AKAMAI_ACCOUNT_SWITCH_KEY come from local-config.<env>.sh
     - If AKAMAI_ACCOUNT_SWITCH_KEY is unset/empty, the script does not pass --accountkey
-    - Network is currently set to: $NETWORK
-    - Edit this script to change network or credentials
+    - Cache tags are scoped by namespace (early-hints-<namespace>, hints-<namespace>-<key>),
+      so purges only affect the selected environment
+    - Network is currently set to: ${NETWORK:-<unset>}
 
 EOF
     exit 0
@@ -315,7 +309,7 @@ function delete_key() {
     log_info "Deleting key: $key"
     log_info "This will:"
     log_info "  1. Remove key from all_hints object"
-    log_info "  2. Purge cache with tag: hints-$key"
+    log_info "  2. Purge cache with tag: ${KEY_TAG_PREFIX}${key}"
 
     # Read current all_hints
     log_info "Reading all_hints..."
@@ -352,14 +346,15 @@ function delete_key() {
     }
 
     # Purge the specific tag
-    purge_by_tag "hints-${key}"
+    purge_by_tag "${KEY_TAG_PREFIX}${key}"
 
     log_info "Key deleted: $key"
 }
 
 function require_config() {
-    : "${EDGERC_SECTION:?AKAMAI_EDGERC_SECTION not set - source ./local-config.sh first}"
-    : "${EDGEKV_NAMESPACE:?EDGEKV_NAMESPACE not set - source ./local-config.sh first}"
+    : "${EDGERC_SECTION:?AKAMAI_EDGERC_SECTION not set - source ./local-config.<env>.sh first}"
+    : "${EDGEKV_NAMESPACE:?EDGEKV_NAMESPACE not set - source ./local-config.<env>.sh first}"
+    : "${NETWORK:?EDGEKV_NETWORK not set - source ./local-config.<env>.sh first}"
 }
 
 # Main script

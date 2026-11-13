@@ -194,33 +194,50 @@ akamai edgekv list ns <production|staging>
 ### 6. Create EdgeWorker IDs
 
 **What is an EdgeWorker ID?**
-An EdgeWorker ID is a unique identifier that Akamai uses to track your deployed code. You need one ID per EdgeWorker (so two IDs total: one for hints-reader, one for hints-updater).
+An EdgeWorker ID is a unique identifier that Akamai uses to track your deployed code. You need one ID per EdgeWorker **per environment**: two IDs (hints-reader, hints-updater) for a single environment, four for UAT + production.
 
-**Create EdgeWorker IDs using npm scripts.** Every account-specific value (`.edgerc` section, account switch key, EdgeWorker IDs, group ID, hostname, EdgeKV namespace) lives only in `local-config.sh` — never in `package.json`, so the repo stays safe to commit/push at any time. The npm scripts read these environment variables directly and abort with `<VAR>: not set - source ./local-config.sh first` if you forget to source it:
+**Multiple environments (e.g. UAT and production on separate hostnames).** When UAT and production are separate hostnames, both on the Akamai production network, each environment gets its own:
+
+- **EdgeKV namespace** (e.g. `earlyhints-uat`, `earlyhints-prod`) - so UAT data never mixes with production
+- **pair of EdgeWorker IDs**, named after the namespace (`hints-reader-<namespace>`, `hints-updater-<namespace>`, e.g. `hints-reader-earlyhints-uat`) - one EdgeWorker ID can only have one active version per network, so separate IDs let you release new code to UAT before production
+- **tokens** - one per EdgeWorker, each scoped to its own EdgeWorker ID and namespace (4 in total), so a UAT EdgeWorker can't read or write production data
+- **cache tags** - `early-hints-<namespace>` and `hints-<namespace>-<key>`. Purging by cache tag hits every object with that tag on the network, so a UAT reset never purges production
+
+The namespace ties these together: it names the EdgeWorkers, is compiled into the bundle, selects the token file (`vendor/edgekv_tokens.<namespace>.js`) and scopes the cache tags. The same code and `package.json` serve every environment; you pick one by sourcing its config file.
+
+**Create EdgeWorker IDs using npm scripts.** Every account-specific value (`.edgerc` section, account switch key, EdgeWorker IDs, group ID, hostname, EdgeKV namespace, network) lives only in a gitignored `local-config.<env>.sh`, one per environment — never in `package.json`, so the repo stays safe to commit/push at any time. The npm scripts read these environment variables directly and abort with `<VAR>: not set - source ./local-config.<env>.sh first` if you forget to source one:
 
 ```bash
-# Copy the template once and fill in your real values
-cp local-config.sh.example local-config.sh   # gitignored, never committed
+# Copy the template once per environment and fill in the real values
+cp local-config.sh.example local-config.uat.sh    # gitignored (local-config*.sh)
+cp local-config.sh.example local-config.prod.sh
 
-# Edit local-config.sh:
+# Edit each file, e.g. local-config.uat.sh:
 export AKAMAI_EDGERC_SECTION="default"        # Your .edgerc section name
 export AKAMAI_ACCOUNT_SWITCH_KEY=""           # Only if needed (ask your Akamai admin)
-export EDGEKV_NAMESPACE="your-namespace-name" # Namespace from step 5
+export EDGEKV_NAMESPACE="earlyhints-uat"      # This environment's namespace from step 5
+export EDGEKV_NETWORK="production"            # Network manage-hints.sh reads/purges
 export EW_GROUP_ID="12345"                    # Your group ID from step 4
 export HINTS_READER_EWID=""                   # Filled in after create-id below
 export HINTS_UPDATER_EWID=""                  # Filled in after create-id below
-export EW_HOSTNAME="your-hostname.example.com"
+export EW_HOSTNAME="uat.example.com"          # This environment's hostname
 
-# Source it, then create each EdgeWorker ID
-source ./local-config.sh
-cd hints-reader && npm run create-id
-# Note the EdgeWorker ID returned (e.g., 109849) — set it as HINTS_READER_EWID in local-config.sh
+# Per environment: source its config, then create its two EdgeWorker IDs
+source ./local-config.uat.sh
+cd hints-reader && npm run create-id       # registers "hints-reader-earlyhints-uat"
+# Note the EdgeWorker ID returned (e.g., 109849) — set it as HINTS_READER_EWID in local-config.uat.sh
 
-cd ../hints-updater && npm run create-id
-# Note the EdgeWorker ID returned (e.g., 109850) — set it as HINTS_UPDATER_EWID in local-config.sh
+cd ../hints-updater && npm run create-id   # registers "hints-updater-earlyhints-uat"
+# Note the EdgeWorker ID returned (e.g., 109850) — set it as HINTS_UPDATER_EWID in local-config.uat.sh
+
+# Repeat with local-config.prod.sh for production
 ```
 
-After updating `local-config.sh`, re-run `source ./local-config.sh` before any further `npm run` command (deploy, generate-token, etc.) in that shell session.
+`create-id` names each EdgeWorker `<ew_name>-<namespace>` (`ew_name` comes from `config.ew_name` in `package.json`), so Control Center shows which environment and namespace each one belongs to.
+
+**Already have EdgeWorker IDs with the old names?** Set their IDs in the environment's config and run `npm run rename-id` in each project. It renames the EdgeWorker to `<ew_name>-<namespace>` via `akamai edgeworkers update-id` and leaves its resource tier unchanged. `update-id` always sends a group, so `EW_GROUP_ID` must be the group the EdgeWorker is already in; otherwise the EdgeWorker is moved to that group.
+
+After updating a config file, re-source it before any further `npm run` command (deploy, generate-token, etc.) in that shell session. **Always check which environment is sourced before deploying** — `echo $EDGEKV_NAMESPACE $EW_HOSTNAME`.
 
 `create-id` registers each EdgeWorker on the resource tier set in `config.tier` of its `package.json` (default `200`). Both EdgeWorkers use EdgeKV, which requires resource tier 200 or higher. So before registering, `create-id` runs `npm run check-edgekv-tier`. That script fails if `config.tier` is below 200. It then checks every contract on the account with `akamai edgeworkers li-restiers` and stops with an error if none of them offers that tier, so you don't end up with a failed `create-id`. You can also run it on its own:
 
@@ -235,16 +252,32 @@ If tier 200 is missing, ask your Akamai account team to enable Dynamic Compute o
 
 ### 7. Create EdgeKV Access Tokens
 
-Now that you have EdgeWorker IDs, create one token per EdgeWorker. Each project's `generate-edgekv-token` script creates a token scoped to its own EdgeWorker ID, saves it to that project's `vendor/edgekv_tokens.js`, and adds the required `namespace-` prefix to the key:
+Now that you have EdgeWorker IDs, create one token per EdgeWorker per environment. Each project's `generate-edgekv-token` script creates a token scoped to its own EdgeWorker ID and the sourced namespace, adds the required `namespace-` prefix to the key, and saves it as `vendor/edgekv_tokens.<namespace>.js`. Tokens for different environments therefore sit side by side, and `npm run package` bundles the one matching the sourced namespace (as `edgekv_tokens.js`):
 
 ```bash
-source ./local-config.sh
+source ./local-config.uat.sh      # then repeat everything with local-config.prod.sh
 
 # Read-only token for hints-reader
 cd hints-reader && npm run generate-edgekv-token
 
 # Read/write token for hints-updater
 cd ../hints-updater && npm run generate-edgekv-token
+```
+
+For UAT + production that's 4 tokens. `package` fails with a clear error if the token file for the sourced namespace is missing.
+
+**Wait for activation before deploying.** A new token starts as `IN_PROGRESS` and takes a few minutes to become `COMPLETE`. Until then, Akamai rejects a bundle containing it with `ACCESS_TOKEN_REFERENCE_INVALID`. So `npm run upload` (and therefore `deploy:*`) first runs `npm run check-edgekv-token`. That script reads the token name and reference from `vendor/edgekv_tokens.<namespace>.js`, looks the token up with `akamai edgekv download token`, and stops the upload unless all of these hold:
+
+- the token exists on the account
+- its activation status is `COMPLETE`
+- its UUID matches the reference in the token file (catches a stale token file)
+- it's valid for this EdgeWorker ID (catches a token created for another EdgeWorker or environment)
+
+```bash
+npm run check-edgekv-token
+# OK: EdgeKV token "hints-rw-earlyhints-uat" is COMPLETE and valid for EdgeWorker 109850
+# or
+# ERROR: EdgeKV token "hints-rw-earlyhints-uat" activation status is IN_PROGRESS - wait until it is COMPLETE (check: akamai edgekv list tokens), then retry
 ```
 
 **Tokens refresh automatically: no expiry date needed.** EdgeKV tokens created since August 2024 are refreshed by Akamai on a schedule and never expire. They stay valid until you revoke them ([Akamai docs](https://techdocs.akamai.com/edgekv/docs/generate-and-retrieve-edgekv-access-tokens#enhanced-token-workflow)). You don't need to rotate them or redeploy the EdgeWorkers to keep EdgeKV access working. The CLI confirms this when the token is created:
@@ -260,15 +293,15 @@ Auto-refreshing tokens require helper library `edgekv.js` 0.6.2 or later; both p
 
 - `EXPIRY=yyyy-mm-dd` - Optional. Leave it unset for an auto-refreshing token (recommended). Set it only if you want the token to stop working on a fixed date; `--expiry` is passed to the CLI only when `EXPIRY` is set
 - `EDGEKV_TOKEN_PERMS` - Permissions (default `r` for hints-reader, `rw` for hints-updater)
-- `EDGEKV_TOKEN_NAME` - Token name (default `<ew_name>-<timestamp>`)
+- `EDGEKV_TOKEN_NAME` - Token name, max 32 characters (EdgeKV limit). Default `hints-<perms>-<namespace>`, e.g. `hints-r-earlyhints-prod` (hints-reader) and `hints-rw-earlyhints-prod` (hints-updater). If the default is too long, the script stops and asks you to set this. Token names must be unique, so to recreate a token, revoke the old one first (`akamai edgekv revoke token <name>`) or pass a new name. Creation dates show in `akamai edgekv list tokens`
 
 Separate tokens give least privilege (hints-reader can't modify EdgeKV) and can be revoked independently.
 
 **CRITICAL**:
 
 - `--namespace` on `akamai edgekv create token` takes the **bare** namespace name. The `namespace-` prefix belongs only in the key of the generated `edgekv_tokens.js` (the script fixes this up for you)
-- If an existing token file is present, the script keeps it as a backup and restores it if token creation fails
-- NEVER commit `edgekv_tokens.js` files - they're already in .gitignore
+- The script writes the new token to a temporary directory and only replaces `vendor/edgekv_tokens.<namespace>.js` if creation succeeds, so a failed run never touches an existing token
+- NEVER commit token files - `vendor/edgekv_tokens*.js` is in .gitignore
 - Template files (`edgekv_tokens.js.template`) are for reference only
 
 ### 8. Configure Static Hints
@@ -291,7 +324,7 @@ export const staticHints = [
 
 ### 9. Update EdgeKV Configuration
 
-No source edits needed. Both EdgeWorkers ship with `EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__"`, a build-time placeholder. `npm run build` runs `tsc`, then `build:namespace` replaces the placeholder in `built/main.js` with `EDGEKV_NAMESPACE` from `local-config.sh`. That way both EdgeWorkers always use the same namespace, and the real name never lands in git. The build fails if `EDGEKV_NAMESPACE` is unset or if a placeholder survives.
+No source edits needed. Both EdgeWorkers ship with `EDGEKV_NAMESPACE = "__EDGEKV_NAMESPACE__"`, a build-time placeholder. `npm run build` runs `tsc`, then `build:namespace` replaces the placeholder in `built/main.js` with `EDGEKV_NAMESPACE` from the sourced `local-config.<env>.sh`. That way both EdgeWorkers of an environment always use the same namespace, the same code builds a UAT or a production bundle depending on what's sourced, and the real name never lands in git. The build fails if `EDGEKV_NAMESPACE` is unset or if a placeholder survives.
 
 ```typescript
 // hints-reader/src/main.ts and hints-updater/src/main.ts
@@ -301,10 +334,10 @@ const EDGEKV_GROUP = "earlyHints";
 
 ### 10. Deploy to Staging
 
-Source `local-config.sh` first in each shell session (the scripts abort if it isn't). `deploy:*` runs lint → build → package → upload → activate:
+Source the environment's config first in each shell session (the scripts abort if nothing is sourced). `deploy:*` runs lint → build → package → upload → activate, and uploads to the EdgeWorker IDs of the sourced environment. `upload` first checks that the bundled EdgeKV token is `COMPLETE` and belongs to this EdgeWorker (`check-edgekv-token`, see step 7). Deploy to UAT first, verify, then source the production config and deploy again:
 
 ```bash
-source ./local-config.sh
+source ./local-config.uat.sh      # later: source ./local-config.prod.sh
 
 # Deploy hints-reader
 cd hints-reader
@@ -319,22 +352,19 @@ npm run deploy:staging
 
 ### 11. Configure Reset Management Script
 
-The management script reads `AKAMAI_EDGERC_SECTION`, `EDGEKV_NAMESPACE` and (optionally) `AKAMAI_ACCOUNT_SWITCH_KEY` from `local-config.sh`, and aborts if the first two are unset:
+The management script reads `AKAMAI_EDGERC_SECTION`, `EDGEKV_NAMESPACE`, `EDGEKV_NETWORK` and (optionally) `AKAMAI_ACCOUNT_SWITCH_KEY` from the sourced `local-config.<env>.sh`, and aborts if any of the first three is unset. It only touches the sourced environment: EdgeKV reads/writes go to its namespace, and purges use its namespaced cache tags (`early-hints-<namespace>`, `hints-<namespace>-<key>`):
 
 ```bash
-source ./local-config.sh
+source ./local-config.uat.sh
 
 # Make script executable
 chmod +x manage-hints.sh
 
-# Run commands
+# Run commands (UAT only)
 ./manage-hints.sh --show-content
-
-# Or override for a single command
-AKAMAI_EDGERC_SECTION=production ./manage-hints.sh --show-content
 ```
 
-The EdgeKV group (`EDGEKV_GROUP="earlyHints"`) and network (`NETWORK="staging"`) are set near the top of `manage-hints.sh`.
+The EdgeKV group (`EDGEKV_GROUP="earlyHints"`) is set near the top of `manage-hints.sh`.
 
 **About ACCOUNT_SWITCH_KEY:**
 
@@ -819,7 +849,7 @@ Changing `hints-updater`'s logic (e.g. version-comparison rules) follows the sam
 │   │   └── edgekv.d.ts        # Type definitions
 │   ├── vendor/
 │   │   ├── edgekv.js          # EdgeKV helper library
-│   │   └── edgekv_tokens.js   # Access token (CREATE THIS - DO NOT COMMIT)
+│   │   └── edgekv_tokens.<namespace>.js   # Access token per environment (generate-edgekv-token - DO NOT COMMIT)
 │   ├── package.json
 │   └── tsconfig.json
 ├── hints-updater/              # EdgeWorker for updating hints
@@ -828,11 +858,11 @@ Changing `hints-updater`'s logic (e.g. version-comparison rules) follows the sam
 │   │   └── edgekv.d.ts        # Type definitions
 │   ├── vendor/
 │   │   ├── edgekv.js          # EdgeKV helper library
-│   │   └── edgekv_tokens.js   # Access token (CREATE THIS - DO NOT COMMIT)
+│   │   └── edgekv_tokens.<namespace>.js   # Access token per environment (generate-edgekv-token - DO NOT COMMIT)
 │   ├── package.json
 │   └── tsconfig.json
 ├── manage-hints.sh              # Management script
-├── .gitignore                  # Excludes vendor/edgekv_tokens.js
+├── .gitignore                  # Excludes vendor/edgekv_tokens*.js and local-config*.sh
 ├── README.md                   # This file
 └── CLAUDE.md                   # Development guide
 ```
@@ -956,8 +986,8 @@ The token file needs `namespace-` prefix:
 
 ## Security Notes
 
-- **Never commit** `vendor/edgekv_tokens.js` - contains access credentials
-- **Verify .gitignore** includes `vendor/edgekv_tokens.js`
+- **Never commit** `vendor/edgekv_tokens*.js` - contains access credentials
+- **Verify .gitignore** includes `vendor/edgekv_tokens*.js`
 - **Revoke and recreate tokens** when team members change or a token may have leaked (tokens no longer expire on their own)
 - **Limit token scope** to only required EdgeWorker IDs
 - **Use separate tokens** for staging and production if possible

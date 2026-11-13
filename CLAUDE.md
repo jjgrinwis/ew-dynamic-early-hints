@@ -238,7 +238,7 @@ THEN:
 5. Compare versions (Last-Modified or serial number)
 6. Update entry if incoming is newer
 7. Write `all_hints` back to EdgeKV
-8. Set `Edge-Cache-Tag: early-hints,hints-<key>`
+8. Set `Edge-Cache-Tag: early-hints-<namespace>,hints-<namespace>-<key>`
 
 **Performance**: 1 EdgeKV read + 1 write per cache miss (only for newer versions)
 
@@ -396,8 +396,8 @@ Look for these log messages in `x-akamai-edgeworker-onclientrequest-log`:
 
 **Two separate EdgeWorkers** must be deployed independently:
 
-- `hints-updater` (EW ID `HINTS_UPDATER_EWID` in `local-config.sh`) - Writes to EdgeKV on cache miss
-- `hints-reader` (EW ID `HINTS_READER_EWID` in `local-config.sh`) - Reads from EdgeKV on client request
+- `hints-updater` (EW ID `HINTS_UPDATER_EWID` in `local-config.<env>.sh`) - Writes to EdgeKV on cache miss
+- `hints-reader` (EW ID `HINTS_READER_EWID` in `local-config.<env>.sh`) - Reads from EdgeKV on client request
 
 **Critical deployment constraint**: Akamai does not allow re-activating an already-active version. Always bump `package.json` version before deploying.
 
@@ -487,7 +487,7 @@ If you see these warnings:
 ## Conventions
 
 - **Logical keys**: Full path stripped of version info (`/static/example.css?v=10` → key `/static/example.css`)
-- **Cache tags**: `early-hints` (global), `hints-<key>` (per-resource)
+- **Cache tags**: `early-hints-<namespace>` (global), `hints-<namespace>-<key>` (per-resource) — scoped by namespace so purges never cross environments
 - **EdgeKV item**: Single `all_hints` object stores all hints with full paths
 - **Version precedence**: Last-Modified > serial number > update anyway
 

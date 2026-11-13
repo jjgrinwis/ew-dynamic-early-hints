@@ -14,12 +14,12 @@ built/
 dist/
 
 # EdgeKV tokens - NEVER COMMIT THESE!
-**/vendor/edgekv_tokens.js
-hints-reader/vendor/edgekv_tokens.js
-hints-updater/vendor/edgekv_tokens.js
+**/vendor/edgekv_tokens*.js
+hints-reader/vendor/edgekv_tokens*.js
+hints-updater/vendor/edgekv_tokens*.js
 
 # Local account-specific config - NEVER COMMIT!
-local-config.sh
+local-config*.sh
 
 # IDE
 .DS_Store
