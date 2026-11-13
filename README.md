@@ -216,7 +216,7 @@ cp local-config.sh.example local-config.prod.sh
 export AKAMAI_EDGERC_SECTION="default"        # Your .edgerc section name
 export AKAMAI_ACCOUNT_SWITCH_KEY=""           # Only if needed (ask your Akamai admin)
 export EDGEKV_NAMESPACE="earlyhints-uat"      # This environment's namespace from step 5
-export EDGEKV_NETWORK="production"            # Network manage-hints.sh reads/purges
+export AKAMAI_NETWORK="production"            # Network manage-hints.sh reads/purges
 export EW_GROUP_ID="12345"                    # Your group ID from step 4
 export HINTS_READER_EWID=""                   # Filled in after create-id below
 export HINTS_UPDATER_EWID=""                  # Filled in after create-id below
@@ -352,7 +352,7 @@ npm run deploy:staging
 
 ### 11. Configure Reset Management Script
 
-The management script reads `AKAMAI_EDGERC_SECTION`, `EDGEKV_NAMESPACE`, `EDGEKV_NETWORK` and (optionally) `AKAMAI_ACCOUNT_SWITCH_KEY` from the sourced `local-config.<env>.sh`, and aborts if any of the first three is unset. It only touches the sourced environment: EdgeKV reads/writes go to its namespace, and purges use its namespaced cache tags (`early-hints-<namespace>`, `hints-<namespace>-<key>`):
+The management script reads `AKAMAI_EDGERC_SECTION`, `EDGEKV_NAMESPACE`, `AKAMAI_NETWORK` and (optionally) `AKAMAI_ACCOUNT_SWITCH_KEY` from the sourced `local-config.<env>.sh`, and aborts if any of the first three is unset. It only touches the sourced environment: EdgeKV reads/writes go to its namespace, and purges use its namespaced cache tags (`early-hints-<namespace>`, `hints-<namespace>-<key>`):
 
 ```bash
 source ./local-config.uat.sh

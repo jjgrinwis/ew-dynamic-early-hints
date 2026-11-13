@@ -14,7 +14,7 @@
 export AKAMAI_EDGERC_SECTION="default"
 export AKAMAI_ACCOUNT_SWITCH_KEY=""
 export EDGEKV_NAMESPACE="CHANGE_ME"          # e.g. earlyhints-uat / earlyhints-prod
-export EDGEKV_NETWORK="production"           # network manage-hints.sh reads/purges
+export AKAMAI_NETWORK="production"           # network manage-hints.sh reads/purges
 export EW_GROUP_ID="CHANGE_ME"
 export HINTS_READER_EWID="CHANGE_ME"
 export HINTS_UPDATER_EWID="CHANGE_ME"

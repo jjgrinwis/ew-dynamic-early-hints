@@ -32,7 +32,7 @@ EDGERC_SECTION="${AKAMAI_EDGERC_SECTION:-}"
 ACCOUNT_SWITCH_KEY="${AKAMAI_ACCOUNT_SWITCH_KEY:-}"
 EDGEKV_NAMESPACE="${EDGEKV_NAMESPACE:-}"
 EDGEKV_GROUP="earlyHints"
-NETWORK="${EDGEKV_NETWORK:-}"  # "staging" or "production"
+NETWORK="${AKAMAI_NETWORK:-}"  # "staging" or "production"
 
 # Cache tag configuration - must match hints-updater (tags are scoped by namespace)
 BROAD_TAG="early-hints-${EDGEKV_NAMESPACE}"
@@ -100,7 +100,7 @@ NOTES:
     - Full reset should be run after any Property Manager configuration change
     - Delete key is useful for targeted cleanup or rollback
     - All hints are stored in a single EdgeKV item "all_hints" for efficiency
-    - AKAMAI_EDGERC_SECTION, EDGEKV_NAMESPACE, EDGEKV_NETWORK and AKAMAI_ACCOUNT_SWITCH_KEY come from local-config.<env>.sh
+    - AKAMAI_EDGERC_SECTION, EDGEKV_NAMESPACE, AKAMAI_NETWORK and AKAMAI_ACCOUNT_SWITCH_KEY come from local-config.<env>.sh
     - If AKAMAI_ACCOUNT_SWITCH_KEY is unset/empty, the script does not pass --accountkey
     - Cache tags are scoped by namespace (early-hints-<namespace>, hints-<namespace>-<key>),
       so purges only affect the selected environment
@@ -354,7 +354,7 @@ function delete_key() {
 function require_config() {
     : "${EDGERC_SECTION:?AKAMAI_EDGERC_SECTION not set - source ./local-config.<env>.sh first}"
     : "${EDGEKV_NAMESPACE:?EDGEKV_NAMESPACE not set - source ./local-config.<env>.sh first}"
-    : "${NETWORK:?EDGEKV_NETWORK not set - source ./local-config.<env>.sh first}"
+    : "${NETWORK:?AKAMAI_NETWORK not set - source ./local-config.<env>.sh first}"
 }
 
 # Main script
