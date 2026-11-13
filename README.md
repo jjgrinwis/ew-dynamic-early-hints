@@ -173,7 +173,8 @@ akamai edgekv initialize
 # If you use the GLOBAL location, reads are faster but write operations are slightly slower.
 #
 # Use the Group ID from step 4 above (--groupId, camelCase - the flag name is case-sensitive)
-akamai edgekv create ns <production|staging> <your-namespace-name> --retention 0 --groupId <group-id> --geoLocation GLOBAL
+akamai edgekv create ns <production|staging> <your-namespace-name> --r
+etention 0 --groupId <group-id> --geoLocation GLOBAL
 
 # Example:
 # akamai edgekv create ns production customer-global --retention 0 --groupId 12345 --geoLocation GLOBAL
@@ -221,7 +222,16 @@ cd ../hints-updater && npm run create-id
 
 After updating `local-config.sh`, re-run `source ./local-config.sh` before any further `npm run` command (deploy, generate-token, etc.) in that shell session.
 
-`create-id` registers each EdgeWorker on the resource tier set in `config.tier` of its `package.json` (default `200`, required for EdgeKV). Run `npm run list-tiers` to see which tiers your contract has.
+`create-id` registers each EdgeWorker on the resource tier set in `config.tier` of its `package.json` (default `200`). Both EdgeWorkers use EdgeKV, which requires resource tier 200 or higher. So before registering, `create-id` runs `npm run check-edgekv-tier`. That script fails if `config.tier` is below 200. It then checks every contract on the account with `akamai edgeworkers li-restiers` and stops with an error if none of them offers that tier, so you don't end up with a failed `create-id`. You can also run it on its own:
+
+```bash
+npm run check-edgekv-tier
+# OK: resource tier 200 (required for EdgeKV) is available on contract M-XXXXXXX
+# or
+# ERROR: resource tier 200 is not available on any contract (M-XXXXXXX) - EdgeKV needs it: enable it on the contract (see npm run list-tiers)
+```
+
+If tier 200 is missing, ask your Akamai account team to enable Dynamic Compute on the contract, or request the evaluation tier (see Prerequisites).
 
 ### 7. Create EdgeKV Access Tokens
 
@@ -796,7 +806,7 @@ Most day-to-day changes are just editing `hints-reader/src/static_hints_config.t
 
 Changing `hints-updater`'s logic (e.g. version-comparison rules) follows the same pattern — edit `hints-updater/src/main.ts`, bump its version, then `npm run deploy:staging`/`deploy:production` from the `hints-updater` directory.
 
-`./manage-hints.sh --full-reset` is only needed when the EdgeKV storage schema or logical-key extraction logic changes, or when Property Manager match criteria change — not for routine static-hints or logic edits (it only clears *dynamic* hints written by `hints-updater`, which are unrelated to static hints).
+`./manage-hints.sh --full-reset` is only needed when the EdgeKV storage schema or logical-key extraction logic changes, or when Property Manager match criteria change — not for routine static-hints or logic edits (it only clears _dynamic_ hints written by `hints-updater`, which are unrelated to static hints).
 
 ## Project Structure
 
@@ -904,7 +914,7 @@ The token file needs `namespace-` prefix:
 
 1. **Check EdgeWorker tier requirement**:
    - EdgeKV requires EdgeWorkers Tier 200 or higher
-   - Verify in Control Center → Account Admin → Contracts
+   - Verify with `npm run check-edgekv-tier` (or Control Center → Account Admin → Contracts)
    - Contact Akamai account team if you need to upgrade
 
 2. **Verify Property Manager activation**:
